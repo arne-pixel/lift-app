@@ -52,7 +52,7 @@ function formatTime(s) {
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180];
 
 // ── Phase Editor (used for warm-up, workout exercises, cool-down) ──
-function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime, setRestTime, color }) {
+function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color }) {
   const addExercise = () => {
     setExercises([...exercises, { name: "", duration: 60 }]);
   };
@@ -113,7 +113,7 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
 
       {showRest && (
         <div style={s.restConfig}>
-          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>
+          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1a1a35" }}>            <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>              {[1,2,3,4,5].map((n) => (                <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                  {n}x                </button>              ))}            </div>          </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
             {REST_OPTIONS.map((t) => (
               <button
@@ -679,7 +679,7 @@ export default function WorkoutApp() {
                     )}
                     {w.workout.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#FF6B6B18", color: "#FF6B6B" }}>
-                        Workout · {w.workout.filter((e) => e.name.trim()).length}
+                        Workout · {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` · ${w.sets}x` : ''}
                       </span>
                     )}
                     {w.cooldown.filter((e) => e.name.trim()).length > 0 && (
