@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ── Audio beep using Web Audio API ──
+// ââ Audio beep using Web Audio API ââ
 function useBeep() {
   const ctxRef = useRef(null);
   const getCtx = () => {
@@ -42,7 +42,7 @@ function useBeep() {
   return { beep, finalBeep };
 }
 
-// ── Helper ──
+// ââ Helper ââ
 function formatTime(s) {
   const m = Math.floor(s / 60);
   const sec = s % 60;
@@ -51,7 +51,7 @@ function formatTime(s) {
 
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180];
 
-// ── Phase Editor (used for warm-up, workout exercises, cool-down) ──
+// ââ Phase Editor (used for warm-up, workout exercises, cool-down) ââ
 function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color }) {
   const addExercise = () => {
     setExercises([...exercises, { name: "", duration: 60 }]);
@@ -93,39 +93,39 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
             <span style={s.durationLabel}>Duur:</span>
-            <button onClick={() => update(i, "duration", Math.max(10, ex.duration - 10))} style={s.smallBtn}>−10</button>
-            <button onClick={() => update(i, "duration", Math.max(5, ex.duration - 5))} style={s.smallBtn}>−5</button>
+            <button onClick={() => update(i, "duration", Math.max(10, ex.duration - 10))} style={s.smallBtn}>â10</button>
+            <button onClick={() => update(i, "duration", Math.max(5, ex.duration - 5))} style={s.smallBtn}>â5</button>
             <span style={s.durationValue}>{formatTime(ex.duration)}</span>
             <button onClick={() => update(i, "duration", ex.duration + 5)} style={s.smallBtn}>+5</button>
             <button onClick={() => update(i, "duration", ex.duration + 10)} style={s.smallBtn}>+10</button>
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-            <button onClick={() => move(i, -1)} style={s.iconBtn} disabled={i === 0}>↑</button>
-            <button onClick={() => move(i, 1)} style={s.iconBtn} disabled={i === exercises.length - 1}>↓</button>
-            <button onClick={() => remove(i)} style={{ ...s.iconBtn, color: "#FF6B6B" }}>✕</button>
+            <button onClick={() => move(i, -1)} style={s.iconBtn} disabled={i === 0}>â</button>
+            <button onClick={() => move(i, 1)} style={s.iconBtn} disabled={i === exercises.length - 1}>â</button>
+            <button onClick={() => remove(i)} style={{ ...s.iconBtn, color: "#FF6B6B" }}>â</button>
           </div>
         </div>
       ))}
 
       <button onClick={addExercise} style={{ ...s.addBtn, borderColor: color + "40", color }}>
-        ＋ Oefening toevoegen
+        ï¼ Oefening toevoegen
       </button>
 
       {showRest && (
-        <div style={s.restConfig}>          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>            {[1,2,3,4,5].map((n) => (              <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                {n}x              </button>            ))}          </div>          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>            {REST_OPTIONS.map((t) => (              <button key={t} onClick={() => setRestTime(t)} style={{ ...s.restChip, background: restTime === t ? color : "#1a1a2e", color: restTime === t ? "#0d0d1a" : "#888" }}>                {t < 60 ? t + "s" : Math.floor(t / 60) + "m" + (t % 60 ? t % 60 + "s" : "")}              </button>            ))}          </div>
-          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>            {[1,2,3,4,5].map((n) => (              <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                {n}x              </button>            ))}          </div>          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>                      <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>              {[1,2,3,4,5].map((n) => (                <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                  {n}x                </button>              ))}            </div>          </div>
+        <div style={s.restConfig}>
+          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>
+            {[1,2,3,4,5].map((n) => (
+              <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>
+                {n}x
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
             {REST_OPTIONS.map((t) => (
-              <button
-                key={t}
-                onClick={() => setRestTime(t)}
-                style={{
-                  ...s.restChip,
-                  background: restTime === t ? color : "#1a1a2e",
-                  color: restTime === t ? "#0d0d1a" : "#888",
-                }}
-              >
-                {t < 60 ? `${t}s` : `${Math.floor(t / 60)}m${t % 60 ? t % 60 + "s" : ""}`}
+              <button key={t} onClick={() => setRestTime(t)} style={{ ...s.restChip, background: restTime === t ? color : "#1a1a2e", color: restTime === t ? "#0d0d1a" : "#888" }}>
+                {t < 60 ? t + "s" : Math.floor(t / 60) + "m" + (t % 60 ? t % 60 + "s" : "")}
               </button>
             ))}
           </div>
@@ -135,7 +135,7 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
   );
 }
 
-// ── Active Timer Screen ──
+// ââ Active Timer Screen ââ
 function ActiveSession({ plan, onFinish }) {
   const { beep, finalBeep } = useBeep();
   const [queue, setQueue] = useState([]);
@@ -167,7 +167,7 @@ function ActiveSession({ plan, onFinish }) {
       });
     };
     addPhase(plan.warmup, "Warm-up", 0);
-    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rust", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
+    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rust", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout Â· Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
     addPhase(plan.cooldown, "Cool Down", 0);
     setQueue(q);
     if (q.length > 0) {
@@ -271,7 +271,7 @@ function ActiveSession({ plan, onFinish }) {
       <div style={s.container}>
         <style>{globalCSS}</style>
         <div style={{ ...s.centerScreen, animation: "fadeIn 0.4s ease" }}>
-          <span style={{ fontSize: 64, marginBottom: 16 }}>🎉</span>
+          <span style={{ fontSize: 64, marginBottom: 16 }}>ð</span>
           <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 32, color: "#4ECDC4", marginBottom: 8 }}>Klaar!</h1>
           <p style={{ color: "#888", fontSize: 15, marginBottom: 4 }}>Totale tijd</p>
           <p style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, color: "#f0f0f0", marginBottom: 32 }}>
@@ -300,7 +300,7 @@ function ActiveSession({ plan, onFinish }) {
       {/* Top bar */}
       <div style={s.activeTopBar}>
         <button onClick={handleStop} style={s.stopBtn}>
-          ✕ Stop
+          â Stop
         </button>
         <div style={s.phasePill}>
           <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
@@ -363,7 +363,7 @@ function ActiveSession({ plan, onFinish }) {
                 Volgende oefening
               </p>
               <p style={{ color: "#f0f0f0", fontSize: 22, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
-                {current.nextName || "—"}
+                {current.nextName || "â"}
               </p>
             </div>
           </>
@@ -405,12 +405,12 @@ function ActiveSession({ plan, onFinish }) {
 
         {/* Time adjust buttons */}
         <div style={s.adjustRow}>
-          <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>−10s</button>
-          <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>−5s</button>
+          <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>â10s</button>
+          <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>â5s</button>
           {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={s.playBtn}>▶</button>
+            <button onClick={() => setIsRunning(true)} style={s.playBtn}>â¶</button>
           ) : (
-            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}>⏸</button>
+            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}>â¸</button>
           )}
           <button onClick={() => adjustTime(5)} style={s.adjustBtn}>+5s</button>
           <button onClick={() => adjustTime(10)} style={s.adjustBtn}>+10s</button>
@@ -419,10 +419,10 @@ function ActiveSession({ plan, onFinish }) {
         {/* Navigation */}
         <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
           <button onClick={goToPrevious} style={{ ...s.skipBtn, opacity: currentIdx === 0 ? 0.3 : 1 }} disabled={currentIdx === 0}>
-            ⏮ Vorige
+            â® Vorige
           </button>
           <button onClick={skipCurrent} style={s.skipBtn}>
-            Volgende ⏭
+            Volgende â­
           </button>
         </div>
       </div>
@@ -442,7 +442,7 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 0; }
 `;
 
-// ── Main App ──
+// ââ Main App ââ
 export default function WorkoutApp() {
   const [screen, setScreen] = useState("home");
   const [workouts, setWorkouts] = useState([]);
@@ -453,7 +453,7 @@ export default function WorkoutApp() {
   const [saving, setSaving] = useState(false);
   const [dbError, setDbError] = useState(null);
 
-  // ── Supabase helpers ──
+  // ââ Supabase helpers ââ
   const getSupabase = () => {
     try {
       // Dynamic import won't work in artifact preview, so we check if it's available
@@ -628,7 +628,7 @@ export default function WorkoutApp() {
     <div style={s.container}>
       <style>{globalCSS}</style>
 
-      {/* ── HOME ── */}
+      {/* ââ HOME ââ */}
       {screen === "home" && (
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={{ ...s.header, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -654,7 +654,7 @@ export default function WorkoutApp() {
               </div>
             ) : workouts.length === 0 ? (
               <div style={s.emptyState}>
-                <span style={{ fontSize: 48, marginBottom: 12 }}>🏋️</span>
+                <span style={{ fontSize: 48, marginBottom: 12 }}>ðï¸</span>
                 <p style={{ color: "#555", fontSize: 14 }}>Nog geen workouts. Maak je eerste aan!</p>
               </div>
             ) : (
@@ -664,7 +664,7 @@ export default function WorkoutApp() {
                     <div style={{ flex: 1 }}>
                       <h3 style={s.workoutCardName}>{w.name}</h3>
                       <p style={s.workoutCardMeta}>
-                        ≈ {formatTime(totalDuration(w))} totaal
+                        â {formatTime(totalDuration(w))} totaal
                       </p>
                       {String(w.id) === String(lastCompletedId) && (
                                         <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>
@@ -674,17 +674,17 @@ export default function WorkoutApp() {
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, marginBottom: 14 }}>
                     {w.warmup.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#F7DC6F18", color: "#F7DC6F" }}>
-                        Warm-up · {w.warmup.filter((e) => e.name.trim()).length}
+                        Warm-up Â· {w.warmup.filter((e) => e.name.trim()).length}
                       </span>
                     )}
                     {w.workout.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#FF6B6B18", color: "#FF6B6B" }}>
-                        Workout · {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` · ${w.sets}x` : ''}
+                        Workout Â· {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` Â· ${w.sets}x` : ''}
                       </span>
                     )}
                     {w.cooldown.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#4ECDC418", color: "#4ECDC4" }}>
-                        Cool Down · {w.cooldown.filter((e) => e.name.trim()).length}
+                        Cool Down Â· {w.cooldown.filter((e) => e.name.trim()).length}
                       </span>
                     )}
                   </div>
@@ -693,10 +693,10 @@ export default function WorkoutApp() {
                       Start
                     </button>
                     <button onClick={() => editWorkout(i)} style={{ ...s.editBtn, flex: "unset", padding: "10px 14px" }}>
-                      ✎
+                      â
                     </button>
                     <button onClick={() => deleteWorkout(i)} style={{ ...s.deleteBtn, color: confirmDeleteIdx === i ? "#FF6B6B" : "#FF6B6B50", borderColor: confirmDeleteIdx === i ? "#FF6B6B" : "#222240" }}>
-                      {confirmDeleteIdx === i ? "Zeker?" : "✕"}
+                      {confirmDeleteIdx === i ? "Zeker?" : "â"}
                     </button>
                   </div>
                 </div>
@@ -707,15 +707,15 @@ export default function WorkoutApp() {
         </div>
       )}
 
-      {/* ── EDIT WORKOUT ── */}
+      {/* ââ EDIT WORKOUT ââ */}
       {screen === "edit" && editingWorkout && (
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={s.editTopBar}>
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
-              ← Terug
+              â Terug
             </button>
             <button onClick={handleSave} style={s.saveBtn}>
-              Opslaan ✓
+              Opslaan â
             </button>
           </div>
 
@@ -730,7 +730,7 @@ export default function WorkoutApp() {
 
             <PhaseEditor
               title="Warm-up"
-              icon="🔥"
+              icon="ð¥"
               color="#F7DC6F"
               exercises={editingWorkout.warmup}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, warmup: ex })}
@@ -739,7 +739,7 @@ export default function WorkoutApp() {
 
             <PhaseEditor
               title="Workout"
-              icon="💪"
+              icon="ðª"
               color="#FF6B6B"
               exercises={editingWorkout.workout}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, workout: ex })}
@@ -750,7 +750,7 @@ export default function WorkoutApp() {
 
             <PhaseEditor
               title="Cool Down"
-              icon="❄️"
+              icon="âï¸"
               color="#4ECDC4"
               exercises={editingWorkout.cooldown}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, cooldown: ex })}
@@ -783,7 +783,7 @@ export default function WorkoutApp() {
                 onClick={handleSaveAndStart}
                 style={{ ...s.startBtn, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
               >
-                ▶ Opslaan & Starten
+                â¶ Opslaan & Starten
               </button>
             )}
 
@@ -795,7 +795,7 @@ export default function WorkoutApp() {
   );
 }
 
-// ── Styles ──
+// ââ Styles ââ
 const s = {
   container: {
     width: "100%", maxWidth: 393,
