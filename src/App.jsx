@@ -167,7 +167,7 @@ function ActiveSession({ plan, onFinish }) {
       });
     };
     addPhase(plan.warmup, "Warm-up", 0);
-    addPhase(plan.workout, "Workout", plan.restTime);
+    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rust", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
     addPhase(plan.cooldown, "Cool Down", 0);
     setQueue(q);
     if (q.length > 0) {
@@ -745,7 +745,7 @@ export default function WorkoutApp() {
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, workout: ex })}
               showRest={true}
               restTime={editingWorkout.restTime}
-              setRestTime={(t) => setEditingWorkout({ ...editingWorkout, restTime: t })}
+              setRestTime={(t) => setEditingWorkout({ ...editingWorkout, restTime: t })}            sets={editingWorkout.sets || 1}            setSets={(n) => setEditingWorkout({ ...editingWorkout, sets: n })}
             />
 
             <PhaseEditor
