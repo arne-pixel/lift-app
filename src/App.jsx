@@ -9,7 +9,7 @@ function useBeep() {
     }
     return ctxRef.current;
   };
-  const beep = useCallback((freq = 880, duation = 0.15) => {
+  const beep = useCallback((freq = 880, duration = 0.15) => {
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -112,8 +112,8 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
       </button>
 
       {showRest && (
-        <div style={s.restConfig}>
-          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #1a1a35" }}>            <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>              {[1,2,3,4,5].map((n) => (                <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                  {n}x                </button>              ))}            </div>          </div>
+        <div style={s.restConfig}>          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>            {[1,2,3,4,5].map((n) => (              <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                {n}x              </button>            ))}          </div>          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>            {REST_OPTIONS.map((t) => (              <button key={t} onClick={() => setRestTime(t)} style={{ ...s.restChip, background: restTime === t ? color : "#1a1a2e", color: restTime === t ? "#0d0d1a" : "#888" }}>                {t < 60 ? t + "s" : Math.floor(t / 60) + "m" + (t % 60 ? t % 60 + "s" : "")}              </button>            ))}          </div>
+          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>            {[1,2,3,4,5].map((n) => (              <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                {n}x              </button>            ))}          </div>          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>                      <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>              {[1,2,3,4,5].map((n) => (                <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>                  {n}x                </button>              ))}            </div>          </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
             {REST_OPTIONS.map((t) => (
               <button
@@ -484,7 +484,7 @@ export default function WorkoutApp() {
         warmup: row.warmup || [],
         workout: row.workout || [],
         cooldown: row.cooldown || [],
-        restTime: row.rest_time || 60, sets: row.sets || 1,
+        restTime: row.rest_time || 60, sets: row.sets || parseInt(localStorage.getItem('sets_' + row.id)) || 1,
       }));
       setWorkouts(mapped);
     } catch (err) {
@@ -568,7 +568,7 @@ export default function WorkoutApp() {
       name: editingWorkout.name.trim() || `Workout ${workouts.length + 1}`,
       id: editingWorkout.id || undefined,
     };
-    const saved = await saveToSupabase(w, isUpdate);
+    const saved = await saveToSupabase(w, isUpdate); if (saved.id) localStorage.setItem('sets_' + saved.id, String(saved.sets || 1));
     if (isUpdate) {
       setWorkouts((wk) => wk.map((item, i) => (i === editingIdx ? saved : item)));
     } else {
