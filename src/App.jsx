@@ -799,7 +799,7 @@ export default function WorkoutApp() {
 // ── Styles ──
 const s = {
   container: {
-    maxWidth: 393,
+    width: "100%", maxWidth: 393,
     margin: "0 auto",
     minHeight: "100vh",
     background: "#0d0d1a",
