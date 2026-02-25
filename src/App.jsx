@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── Audio beep using Web Audio API ──
-function useBeep() {
+function useBeep(beepType, finalBeepType) {
   const ctxRef = useRef(null);
   const getCtx = () => {
     if (!ctxRef.current) {
@@ -9,36 +9,25 @@ function useBeep() {
     }
     return ctxRef.current;
   };
-  const beep = useCallback((freq = 880, duration = 0.15) => {
+  const BP = { classic:[880,"square",0.3,0.15], soft:[660,"sine",0.2,0.2], sharp:[1200,"sawtooth",0.25,0.1], low:[440,"triangle",0.35,0.2], double:[988,"square",0.25,0.08] };
+  const FP = { classic:[1200,"square",0.4,0.4], gentle:[880,"sine",0.3,0.5], alarm:[1500,"sawtooth",0.35,0.3], deep:[330,"triangle",0.45,0.5], triple:[1100,"square",0.3,0.12] };
+  const playTone = (ctx, f, t, g, d, delay) => { const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=t;gn.gain.setValueAtTime(g,ctx.currentTime+(delay||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(delay||0)+d);o.start(ctx.currentTime+(delay||0));o.stop(ctx.currentTime+(delay||0)+d); };
+  const beep = useCallback(() => {
     try {
       const ctx = getCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      osc.type = "square";
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + duration);
+      const p = BP[beepType] || BP.classic;
+      if (beepType === 'double') { playTone(ctx,p[0],p[1],p[2],p[3],0); playTone(ctx,p[0],p[1],p[2],p[3],0.12); }
+      else { playTone(ctx,p[0],p[1],p[2],p[3]); }
     } catch (e) {}
-  }, []);
+  }, [beepType]);
   const finalBeep = useCallback(() => {
     try {
       const ctx = getCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 1200;
-      osc.type = "square";
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.4);
+      const p = FP[finalBeepType] || FP.classic;
+      if (finalBeepType === 'triple') { [0,0.15,0.3].forEach(d => playTone(ctx,p[0],p[1],p[2],p[3],d)); }
+      else { playTone(ctx,p[0],p[1],p[2],p[3]); }
     } catch (e) {}
-  }, []);
+  }, [finalBeepType]);
   return { beep, finalBeep };
 }
 
@@ -52,7 +41,7 @@ function formatTime(s) {
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180];
 
 // ── Phase Editor (used for warm-up, workout exercises, cool-down) ──
-function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color }) {
+function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color, collapsible, collapsed, onToggleCollapse }) {
   const addExercise = () => {
     setExercises([...exercises, { name: "", duration: 60 }]);
   };
@@ -74,11 +63,13 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
 
   return (
     <div style={s.phaseBlock}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+      <div onClick={collapsible ? onToggleCollapse : undefined} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: collapsed ? 0 : 16, cursor: collapsible ? "pointer" : "default" }}>
         <span style={{ fontSize: 22 }}>{icon}</span>
-        <h2 style={{ ...s.phaseTitle, color }}>{title}</h2>
+        <h2 style={{ ...s.phaseTitle, color, flex: 1 }}>{title}</h2>
+        {collapsible && <span style={{ color: "#555", fontSize: 18, transition: "transform 0.2s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>}
       </div>
 
+      {!collapsed && (<>
       {exercises.map((ex, i) => (
         <div key={i} style={s.exerciseRow}>
           <div style={{ display: "flex", gap: 8, flex: 1, alignItems: "center" }}>
@@ -131,13 +122,15 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
           </div>
         </div>
       )}
+      </>)}
+
     </div>
   );
 }
 
 // ── Active Timer Screen ──
 function ActiveSession({ plan, onFinish }) {
-  const { beep, finalBeep } = useBeep();
+  const { beep, finalBeep } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
   const [queue, setQueue] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [remaining, setRemaining] = useState(0);
@@ -451,7 +444,11 @@ export default function WorkoutApp() {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [warmupCollapsed, setWarmupCollapsed] = useState(true);
+  const [cooldownCollapsed, setCooldownCollapsed] = useState(true);
   const [dbError, setDbError] = useState(null);
+  const [beepType, setBeepType] = useState(() => localStorage.getItem('beepType') || 'classic');
+  const [finalBeepType, setFinalBeepType] = useState(() => localStorage.getItem('finalBeepType') || 'classic');
 
   // ── Supabase helpers ──
   const getSupabase = () => {
@@ -635,7 +632,8 @@ export default function WorkoutApp() {
                           <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>}
-                                            <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>
+                                            <button onClick={() => setScreen("settings")} style={s.newWorkoutBtn}>⚙</button>
+              <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>
                                     </div>
                     </div>
           
@@ -735,6 +733,9 @@ export default function WorkoutApp() {
               exercises={editingWorkout.warmup}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, warmup: ex })}
               showRest={false}
+              collapsible={true}
+              collapsed={warmupCollapsed}
+              onToggleCollapse={() => setWarmupCollapsed(!warmupCollapsed)}
             />
 
             <PhaseEditor
@@ -755,6 +756,9 @@ export default function WorkoutApp() {
               exercises={editingWorkout.cooldown}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, cooldown: ex })}
               showRest={false}
+              collapsible={true}
+              collapsed={cooldownCollapsed}
+              onToggleCollapse={() => setCooldownCollapsed(!cooldownCollapsed)}
             />
 
             {/* Summary */}
@@ -791,6 +795,60 @@ export default function WorkoutApp() {
           </div>
         </div>
       )}
+
+    {/* ── SETTINGS ── */}
+    {screen === "settings" && (
+      <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
+        <div style={s.editTopBar}>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Terug</button>
+          <h2 style={{ color: "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Instellingen</h2>
+          <div style={{ width: 60 }} />
+        </div>
+        <div style={{ padding: "0 20px" }}>
+          <div style={s.phaseBlock}>
+            <h3 style={{ fontSize: 14, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600, marginBottom: 16 }}>Countdown beep (laatste 3s)</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { id: "classic", label: "Classic", desc: "Korte square beep" },
+                { id: "soft", label: "Soft", desc: "Zachte sine toon" },
+                { id: "sharp", label: "Sharp", desc: "Scherpe sawtooth" },
+                { id: "low", label: "Low", desc: "Lage triangle toon" },
+                { id: "double", label: "Double", desc: "Dubbele snelle beep" },
+              ].map(opt => (
+                <button key={opt.id} onClick={() => {
+                  setBeepType(opt.id); localStorage.setItem('beepType', opt.id);
+                  try { const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);} } catch(e){}
+                }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: beepType === opt.id ? "#1a1a3a" : "#0d0d1a", border: beepType === opt.id ? "1px solid #4ECDC4" : "1px solid #1a1a30", borderRadius: 12, cursor: "pointer", textAlign: "left" }}>
+                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: beepType === opt.id ? "2px solid #4ECDC4" : "2px solid #333", background: beepType === opt.id ? "#4ECDC4" : "none", flexShrink: 0 }} />
+                  <div><span style={{ color: "#f0f0f0", fontSize: 14, fontWeight: 600, display: "block" }}>{opt.label}</span><span style={{ color: "#555", fontSize: 11 }}>{opt.desc}</span></div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ ...s.phaseBlock, marginTop: 16 }}>
+            <h3 style={{ fontSize: 14, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600, marginBottom: 16 }}>Finale beep</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { id: "classic", label: "Classic", desc: "Luide square toon" },
+                { id: "gentle", label: "Gentle", desc: "Zachte langere toon" },
+                { id: "alarm", label: "Alarm", desc: "Hoge sawtooth alert" },
+                { id: "deep", label: "Deep", desc: "Diepe bass toon" },
+                { id: "triple", label: "Triple", desc: "Drie snelle beeps" },
+              ].map(opt => (
+                <button key={opt.id} onClick={() => {
+                  setFinalBeepType(opt.id); localStorage.setItem('finalBeepType', opt.id);
+                  try { const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);} } catch(e){}
+                }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: finalBeepType === opt.id ? "#1a1a3a" : "#0d0d1a", border: finalBeepType === opt.id ? "1px solid #FF6B6B" : "1px solid #1a1a30", borderRadius: 12, cursor: "pointer", textAlign: "left" }}>
+                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: finalBeepType === opt.id ? "2px solid #FF6B6B" : "2px solid #333", background: finalBeepType === opt.id ? "#FF6B6B" : "none", flexShrink: 0 }} />
+                  <div><span style={{ color: "#f0f0f0", fontSize: 14, fontWeight: 600, display: "block" }}>{opt.label}</span><span style={{ color: "#555", fontSize: 11 }}>{opt.desc}</span></div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 40 }} />
+        </div>
+      </div>
+    )}
     </div>
   );
 }
