@@ -632,10 +632,10 @@ export default function WorkoutApp() {
       {screen === "home" && (
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={{ ...s.header, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span>span></h1>h1>
+                          <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>span>}
-                                            <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>button>
+                            {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>}
+                                            <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>
                                     </div>
                     </div>
           
@@ -667,7 +667,7 @@ export default function WorkoutApp() {
                         ≈ {formatTime(totalDuration(w))} totaal
                       </p>
                       {String(w.id) === String(lastCompletedId) && (
-                                        <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>span>
+                                        <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>last completed</span>
                                         )}
                     </div>
                   </div>
