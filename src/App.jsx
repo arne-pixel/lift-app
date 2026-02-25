@@ -667,7 +667,7 @@ export default function WorkoutApp() {
                         ≈ {formatTime(totalDuration(w))} totaal
                       </p>
                       {String(w.id) === String(lastCompletedId) && (
-                                        <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>last completed</span>
+                                        <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>
                                         )}
                     </div>
                   </div>
