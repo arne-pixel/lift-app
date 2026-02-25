@@ -41,7 +41,7 @@ function formatTime(s) {
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180];
 
 // ── Phase Editor (used for warm-up, workout exercises, cool-down) ──
-function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color, collapsible, collapsed, onToggleCollapse }) {
+function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color, collapsible, collapsed, onToggleCollapse, sectionDuration }) {
   const addExercise = () => {
     setExercises([...exercises, { name: "", duration: 60 }]);
   };
@@ -64,8 +64,8 @@ function PhaseEditor({ title, icon, exercises, setExercises, showRest, restTime,
   return (
     <div style={s.phaseBlock}>
       <div onClick={collapsible ? onToggleCollapse : undefined} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: collapsed ? 0 : 16, cursor: collapsible ? "pointer" : "default" }}>
-        <span style={{ fontSize: 22 }}>{icon}</span>
         <h2 style={{ ...s.phaseTitle, color, flex: 1 }}>{title}</h2>
+        {sectionDuration !== undefined && <span style={{ fontSize: 12, color: "#666", fontFamily: "'Space Mono', monospace", fontWeight: 600 }}>{sectionDuration}</span>}
         {collapsible && <span style={{ color: "#555", fontSize: 18, transition: "transform 0.2s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>}
       </div>
 
@@ -287,7 +287,7 @@ function ActiveSession({ plan, onFinish }) {
   const totalExercises = exercisesInQueue.length;
 
   return (
-    <div style={{ ...s.container, background: isRest ? "#0a0a18" : "#0d0d1a" }}>
+    <div style={{ ...s.container, background: isRest ? (_currentTheme === 'light' ? '#eeeef2' : '#0a0a18') : (_currentTheme === 'light' ? '#f5f5f7' : '#0d0d1a') }}>
       <style>{globalCSS}</style>
 
       {/* Top bar */}
@@ -310,7 +310,7 @@ function ActiveSession({ plan, onFinish }) {
               flex: 1,
               height: 3,
               borderRadius: 2,
-              background: i < currentIdx ? phaseColor : i === currentIdx ? phaseColor + "80" : "#1a1a2e",
+              background: i < currentIdx ? phaseColor : i === currentIdx ? phaseColor + "80" : (_currentTheme === "light" ? "#d0d0d8" : "#1a1a2e"),
               transition: "background 0.3s ease",
             }}
           />
@@ -326,7 +326,7 @@ function ActiveSession({ plan, onFinish }) {
             </p>
             <div style={s.bigTimerWrap}>
               <svg width="220" height="220" viewBox="0 0 220 220">
-                <circle cx="110" cy="110" r="98" fill="none" stroke="#1a1a2e" strokeWidth="6" />
+                <circle cx="110" cy="110" r="98" fill="none" stroke={_currentTheme === "light" ? "#d0d0d8" : "#1a1a2e"} strokeWidth="6" />
                 <circle
                   cx="110" cy="110" r="98"
                   fill="none"
@@ -344,7 +344,7 @@ function ActiveSession({ plan, onFinish }) {
                   fontFamily: "'Space Mono', monospace",
                   fontSize: 52,
                   fontWeight: 700,
-                  color: remaining <= 3 ? "#FF6B6B" : "#f0f0f0",
+                  color: remaining <= 3 ? "#FF6B6B" : (_currentTheme === "light" ? "#1a1a2e" : "#f0f0f0"),
                   animation: remaining <= 3 && remaining > 0 ? "pulse 0.5s ease infinite" : "none",
                 }}>
                   {formatTime(remaining)}
@@ -368,7 +368,7 @@ function ActiveSession({ plan, onFinish }) {
             <h1 style={s.activeExName}>{current.name}</h1>
             <div style={s.bigTimerWrap}>
               <svg width="220" height="220" viewBox="0 0 220 220">
-                <circle cx="110" cy="110" r="98" fill="none" stroke="#1a1a2e" strokeWidth="6" />
+                <circle cx="110" cy="110" r="98" fill="none" stroke={_currentTheme === "light" ? "#d0d0d8" : "#1a1a2e"} strokeWidth="6" />
                 <circle
                   cx="110" cy="110" r="98"
                   fill="none"
@@ -386,7 +386,7 @@ function ActiveSession({ plan, onFinish }) {
                   fontFamily: "'Space Mono', monospace",
                   fontSize: 52,
                   fontWeight: 700,
-                  color: remaining <= 3 ? "#FF6B6B" : "#f0f0f0",
+                  color: remaining <= 3 ? "#FF6B6B" : (_currentTheme === "light" ? "#1a1a2e" : "#f0f0f0"),
                   animation: remaining <= 3 && remaining > 0 ? "pulse 0.5s ease infinite" : "none",
                 }}>
                   {formatTime(remaining)}
@@ -447,6 +447,7 @@ export default function WorkoutApp() {
   const [warmupCollapsed, setWarmupCollapsed] = useState(true);
   const [cooldownCollapsed, setCooldownCollapsed] = useState(true);
   const [dbError, setDbError] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('liftTheme') || 'dark');
   const [beepType, setBeepType] = useState(() => localStorage.getItem('beepType') || 'classic');
   const [finalBeepType, setFinalBeepType] = useState(() => localStorage.getItem('finalBeepType') || 'classic');
 
@@ -728,7 +729,6 @@ export default function WorkoutApp() {
 
             <PhaseEditor
               title="Warm-up"
-              icon="🔥"
               color="#F7DC6F"
               exercises={editingWorkout.warmup}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, warmup: ex })}
@@ -736,22 +736,22 @@ export default function WorkoutApp() {
               collapsible={true}
               collapsed={warmupCollapsed}
               onToggleCollapse={() => setWarmupCollapsed(!warmupCollapsed)}
+            sectionDuration={formatTime(editingWorkout.warmup.reduce((a,e) => a + (e.name.trim() ? e.duration : 0), 0))}
             />
 
             <PhaseEditor
               title="Workout"
-              icon="💪"
               color="#FF6B6B"
               exercises={editingWorkout.workout}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, workout: ex })}
               showRest={true}
               restTime={editingWorkout.restTime}
               setRestTime={(t) => setEditingWorkout({ ...editingWorkout, restTime: t })}            sets={editingWorkout.sets || 1}            setSets={(n) => setEditingWorkout({ ...editingWorkout, sets: n })}
+            sectionDuration={formatTime((() => { const d = editingWorkout.workout.reduce((a,e) => a + (e.name.trim() ? e.duration : 0), 0); const ns = editingWorkout.sets || 1; const ec = editingWorkout.workout.filter(e => e.name.trim()).length; const r = ec > 1 ? (ec-1)*editingWorkout.restTime : 0; return (d+r)*ns + (ns>1?(ns-1)*editingWorkout.restTime:0); })())}
             />
 
             <PhaseEditor
               title="Cool Down"
-              icon="❄️"
               color="#4ECDC4"
               exercises={editingWorkout.cooldown}
               setExercises={(ex) => setEditingWorkout({ ...editingWorkout, cooldown: ex })}
@@ -759,6 +759,7 @@ export default function WorkoutApp() {
               collapsible={true}
               collapsed={cooldownCollapsed}
               onToggleCollapse={() => setCooldownCollapsed(!cooldownCollapsed)}
+            sectionDuration={formatTime(editingWorkout.cooldown.reduce((a,e) => a + (e.name.trim() ? e.duration : 0), 0))}
             />
 
             {/* Summary */}
@@ -801,48 +802,41 @@ export default function WorkoutApp() {
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
           <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Terug</button>
-          <h2 style={{ color: "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Instellingen</h2>
+          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Instellingen</h2>
           <div style={{ width: 60 }} />
         </div>
         <div style={{ padding: "0 20px" }}>
+          <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 8 }}>Uiterlijk</h3>
           <div style={s.phaseBlock}>
-            <h3 style={{ fontSize: 14, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600, marginBottom: 16 }}>Countdown beep (laatste 3s)</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                { id: "classic", label: "Classic", desc: "Korte square beep" },
-                { id: "soft", label: "Soft", desc: "Zachte sine toon" },
-                { id: "sharp", label: "Sharp", desc: "Scherpe sawtooth" },
-                { id: "low", label: "Low", desc: "Lage triangle toon" },
-                { id: "double", label: "Double", desc: "Dubbele snelle beep" },
-              ].map(opt => (
-                <button key={opt.id} onClick={() => {
-                  setBeepType(opt.id); localStorage.setItem('beepType', opt.id);
-                  try { const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);} } catch(e){}
-                }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: beepType === opt.id ? "#1a1a3a" : "#0d0d1a", border: beepType === opt.id ? "1px solid #4ECDC4" : "1px solid #1a1a30", borderRadius: 12, cursor: "pointer", textAlign: "left" }}>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: beepType === opt.id ? "2px solid #4ECDC4" : "2px solid #333", background: beepType === opt.id ? "#4ECDC4" : "none", flexShrink: 0 }} />
-                  <div><span style={{ color: "#f0f0f0", fontSize: 14, fontWeight: 600, display: "block" }}>{opt.label}</span><span style={{ color: "#555", fontSize: 11 }}>{opt.desc}</span></div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[{id:"dark",label:"Dark"},{id:"light",label:"Light"}].map(opt => (
+                <button key={opt.id} onClick={() => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
+                  <span style={{ color: theme === opt.id ? "#4ECDC4" : "#888", fontSize: 14, fontWeight: 700 }}>{opt.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ ...s.phaseBlock, marginTop: 16 }}>
-            <h3 style={{ fontSize: 14, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600, marginBottom: 16 }}>Finale beep</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                { id: "classic", label: "Classic", desc: "Luide square toon" },
-                { id: "gentle", label: "Gentle", desc: "Zachte langere toon" },
-                { id: "alarm", label: "Alarm", desc: "Hoge sawtooth alert" },
-                { id: "deep", label: "Deep", desc: "Diepe bass toon" },
-                { id: "triple", label: "Triple", desc: "Drie snelle beeps" },
-              ].map(opt => (
-                <button key={opt.id} onClick={() => {
-                  setFinalBeepType(opt.id); localStorage.setItem('finalBeepType', opt.id);
-                  try { const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);} } catch(e){}
-                }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: finalBeepType === opt.id ? "#1a1a3a" : "#0d0d1a", border: finalBeepType === opt.id ? "1px solid #FF6B6B" : "1px solid #1a1a30", borderRadius: 12, cursor: "pointer", textAlign: "left" }}>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: finalBeepType === opt.id ? "2px solid #FF6B6B" : "2px solid #333", background: finalBeepType === opt.id ? "#FF6B6B" : "none", flexShrink: 0 }} />
-                  <div><span style={{ color: "#f0f0f0", fontSize: 14, fontWeight: 600, display: "block" }}>{opt.label}</span><span style={{ color: "#555", fontSize: 11 }}>{opt.desc}</span></div>
+          <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 24 }}>Geluid</h3>
+          <div style={s.phaseBlock}>
+            <p style={{ fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 12 }}>Countdown (laatste 3s)</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {[{id:"classic",label:"Classic",desc:"Korte square beep"},{id:"soft",label:"Soft",desc:"Zachte sine toon"},{id:"sharp",label:"Sharp",desc:"Scherpe sawtooth"},{id:"low",label:"Low",desc:"Lage triangle toon"},{id:"double",label:"Double",desc:"Dubbele snelle beep"}].map(opt => (
+                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                  <span style={{ width:18,height:18,borderRadius:"50%",border:beepType===opt.id?"2px solid #4ECDC4":"2px solid #444",background:beepType===opt.id?"#4ECDC4":"none",flexShrink:0 }} />
+                  <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                 </button>
               ))}
+            </div>
+            <div style={{ borderTop:_currentTheme==='light'?"1px solid #e0e0e5":"1px solid #1a1a35",marginTop:16,paddingTop:16 }}>
+              <p style={{ fontSize:13,color:"#888",fontWeight:600,marginBottom:12 }}>Finale</p>
+              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
+                {[{id:"classic",label:"Classic",desc:"Luide square toon"},{id:"gentle",label:"Gentle",desc:"Zachte langere toon"},{id:"alarm",label:"Alarm",desc:"Hoge sawtooth alert"},{id:"deep",label:"Deep",desc:"Diepe bass toon"},{id:"triple",label:"Triple",desc:"Drie snelle beeps"}].map(opt => (
+                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                    <span style={{ width:18,height:18,borderRadius:"50%",border:finalBeepType===opt.id?"2px solid #FF6B6B":"2px solid #444",background:finalBeepType===opt.id?"#FF6B6B":"none",flexShrink:0 }} />
+                    <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <div style={{ height: 40 }} />
@@ -854,7 +848,34 @@ export default function WorkoutApp() {
 }
 
 // ── Styles ──
-const s = {
+const lightOverrides = {
+  container: { background: "#f5f5f7", color: "#1a1a2e" },
+  workoutCard: { background: "#ffffff", border: "1px solid #e0e0e5" },
+  workoutCardName: { color: "#1a1a2e" },
+  workoutCardMeta: { color: "#888" },
+  phaseBlock: { background: "#ffffff", border: "1px solid #e0e0e5" },
+  exerciseRow: { background: "#f5f5f7", border: "1px solid #e8e8ec" },
+  editTopBar: { background: "#f5f5f7" },
+  nameInput: { color: "#1a1a2e", borderBottom: "1px solid #d0d0d8" },
+  workoutNameInput: { color: "#1a1a2e" },
+  smallBtn: { background: "#e8e8ec", border: "1px solid #d0d0d8", color: "#555" },
+  iconBtn: { background: "#e8e8ec", border: "1px solid #d0d0d8", color: "#555" },
+  restConfig: { borderTop: "1px solid #e0e0e5" },
+  restChip: { border: "1px solid #d0d0d8" },
+  summaryCard: { background: "#ffffff", border: "1px solid #e0e0e5" },
+  editBtn: { background: "#e8e8ec", border: "1px solid #d0d0d8", color: "#555" },
+  deleteBtn: { background: "#e8e8ec", border: "1px solid #d0d0d8" },
+  exNumber: { background: "#e8e8ec", color: "#888" },
+  durationValue: { color: "#1a1a2e" },
+  cancelBtn: { color: "#555" },
+  adjustBtn: { background: "#e8e8ec", border: "1px solid #d0d0d8", color: "#555" },
+  skipBtn: { border: "1px solid #d0d0d8", color: "#888" },
+  newWorkoutBtn: { color: "#555" },
+  phasePill: { background: "#ffffff", border: "1px solid #e0e0e5" },
+  activeExName: { color: "#1a1a2e" },
+};
+
+const _darkS = {
   container: {
     width: "100%", maxWidth: 393,
     margin: "0 auto",
@@ -1279,3 +1300,5 @@ const s = {
     padding: 24,
   },
 };
+const _currentTheme = localStorage.getItem('liftTheme') || 'dark';
+const s = _currentTheme === 'light' ? Object.keys(lightOverrides).reduce((acc, key) => { acc[key] = { ..._darkS[key], ...lightOverrides[key] }; return acc; }, { ..._darkS }) : _darkS;
