@@ -9,7 +9,7 @@ function useBeep() {
     }
     return ctxRef.current;
   };
-  const beep = useCallback((freq = 880, duration = 0.15) => {
+  const beep = useCallback((freq = 880, duation = 0.15) => {
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -799,7 +799,7 @@ export default function WorkoutApp() {
 // ── Styles ──
 const s = {
   container: {
-    maxWidth: 480,
+    maxWidth: 393,
     margin: "0 auto",
     minHeight: "100vh",
     background: "#0d0d1a",
