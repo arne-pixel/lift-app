@@ -631,24 +631,20 @@ export default function WorkoutApp() {
       {/* ── HOME ── */}
       {screen === "home" && (
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
-          <div style={s.header}>
-            <div>
-              <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
-  
-            </div>
-            {saving && <span style={{ fontSize: 12, color: "#4ECDC4", alignSelf: "center", fontWeight: 600 }}>Opslaan...</span>}
-          </div>
-
+          <div style={{ ...s.header, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span>span></h1>h1>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>span>}
+                                            <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>button>
+                                    </div>
+                    </div>
+          
           {dbError && (
             <div style={{ margin: "0 20px 16px", padding: "10px 14px", background: "#FF6B6B15", border: "1px solid #FF6B6B30", borderRadius: 10, fontSize: 12, color: "#FF6B6B" }}>
               {dbError}
             </div>
           )}
 
-          <button onClick={createNewWorkout} style={s.startBtn}>
-            <span style={{ fontSize: 22 }}>＋</span>
-            <span>Nieuwe Workout</span>
-          </button>
 
           <div style={{ padding: "0 20px" }}>
             <h2 style={s.sectionTitle}>Mijn workouts</h2>
@@ -670,6 +666,9 @@ export default function WorkoutApp() {
                       <p style={s.workoutCardMeta}>
                         ≈ {formatTime(totalDuration(w))} totaal
                       </p>
+                      {String(w.id) === String(lastCompletedId) && (
+                                        <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>span>
+                                        )}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, marginBottom: 14 }}>
@@ -693,8 +692,8 @@ export default function WorkoutApp() {
                     <button onClick={() => startWorkout(i)} style={s.goBtn}>
                       Start
                     </button>
-                    <button onClick={() => editWorkout(i)} style={s.editBtn}>
-                      ✎ Bewerk
+                    <button onClick={() => editWorkout(i)} style={{ ...s.editBtn, flex: "unset", padding: "10px 14px" }}>
+                      ✎
                     </button>
                     <button onClick={() => deleteWorkout(i)} style={{ ...s.deleteBtn, color: confirmDeleteIdx === i ? "#FF6B6B" : "#FF6B6B50", borderColor: confirmDeleteIdx === i ? "#FF6B6B" : "#222240" }}>
                       {confirmDeleteIdx === i ? "Zeker?" : "✕"}
