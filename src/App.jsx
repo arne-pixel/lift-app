@@ -484,7 +484,7 @@ export default function WorkoutApp() {
         warmup: row.warmup || [],
         workout: row.workout || [],
         cooldown: row.cooldown || [],
-        restTime: row.rest_time || 60,
+        restTime: row.rest_time || 60, sets: row.sets || 1,
       }));
       setWorkouts(mapped);
     } catch (err) {
@@ -503,7 +503,7 @@ export default function WorkoutApp() {
         warmup: workout.warmup,
         workout: workout.workout,
         cooldown: workout.cooldown,
-        rest_time: workout.restTime,
+        rest_time: workout.restTime, sets: workout.sets || 1,
         updated_at: new Date().toISOString(),
       };
       if (isUpdate && workout.id) {
@@ -541,7 +541,7 @@ export default function WorkoutApp() {
     setEditingWorkout({
       name: "",
       warmup: [{ name: "", duration: 60 }],
-      workout: [{ name: "", duration: 45 }],
+      workout: [{ name: "", duration: 45 }], sets: 1,
       cooldown: [{ name: "", duration: 60 }],
       restTime: 60,
     });
@@ -555,7 +555,7 @@ export default function WorkoutApp() {
       ...w,
       warmup: w.warmup.map(e => ({ ...e })),
       workout: w.workout.map(e => ({ ...e })),
-      cooldown: w.cooldown.map(e => ({ ...e })),
+      cooldown: w.cooldown.map(e => ({ ...e })), sets: w.sets || 1,
     });
     setEditingIdx(idx);
     setScreen("edit");
@@ -610,9 +610,9 @@ export default function WorkoutApp() {
 
   const totalDuration = (w) => {
     const d = (arr) => arr.reduce((a, e) => a + (e.name.trim() ? e.duration : 0), 0);
-    const exCount = w.workout.filter((e) => e.name.trim()).length;
+    const numSets = w.sets || 1; const exCount = w.workout.filter((e) => e.name.trim()).length;
     const restTotal = exCount > 1 ? (exCount - 1) * w.restTime : 0;
-    return d(w.warmup) + d(w.workout) + restTotal + d(w.cooldown);
+    const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return d(w.warmup) + workoutTotal + d(w.cooldown);
   };
 
   if (screen === "active" && activeWorkout) {
