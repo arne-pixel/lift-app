@@ -590,7 +590,7 @@ export default function WorkoutApp() {
     setEditingWorkout(null);
   };
 
-  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
   const deleteWorkout = (idx) => {
     if (confirmDeleteIdx === idx) {
       const w = workouts[idx];
@@ -634,7 +634,7 @@ export default function WorkoutApp() {
           <div style={s.header}>
             <div>
               <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
-              <p style={s.subtitle}>Krachttraining tracker</p>
+  
             </div>
             {saving && <span style={{ fontSize: 12, color: "#4ECDC4", alignSelf: "center", fontWeight: 600 }}>Opslaan...</span>}
           </div>
@@ -691,7 +691,7 @@ export default function WorkoutApp() {
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => startWorkout(i)} style={s.goBtn}>
-                      ▶ Start
+                      Start
                     </button>
                     <button onClick={() => editWorkout(i)} style={s.editBtn}>
                       ✎ Bewerk
@@ -1213,7 +1213,7 @@ const s = {
     cursor: "pointer",
     fontFamily: "'DM Sans', sans-serif",
   },
-  centerScreen: {
+  newWorkoutBtn: {    background: "none",    border: "none",    color: "#888",    fontSize: 26,    fontWeight: 300,    cursor: "pointer",    padding: "4px 8px",    lineHeight: 1,  },  centerScreen: {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
