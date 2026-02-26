@@ -158,9 +158,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         }
       });
     };
-    addPhase(plan.warmup, "Warm-up", 0);
+    if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
     const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
-    addPhase(plan.cooldown, "Cool Down", 0);
+    if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
     setQueue(q);
     if (q.length > 0) {
       setRemaining(q[0].duration);
@@ -820,6 +820,8 @@ export default function WorkoutApp() {
       workout: [{ name: "", duration: 45 }], sets: 1,
       cooldown: [{ name: "", duration: 60 }],
       restTime: 60,
+      skipWarmup: false,
+      skipCooldown: false,
     });
     setEditingIdx(null);
     setScreen("edit");
@@ -829,6 +831,8 @@ export default function WorkoutApp() {
     const w = workouts[idx];
     setEditingWorkout({
       ...w,
+      skipWarmup: w.skipWarmup || false,
+      skipCooldown: w.skipCooldown || false,
       warmup: w.warmup.map(e => ({ ...e })),
       workout: w.workout.map(e => ({ ...e })),
       cooldown: w.cooldown.map(e => ({ ...e })), sets: w.sets || 1,
@@ -1041,6 +1045,13 @@ export default function WorkoutApp() {
               style={s.workoutNameInput}
             />
 
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Warm-up</span>
+              <button
+                onClick={() => setEditingWorkout({ ...editingWorkout, skipWarmup: !editingWorkout.skipWarmup })}
+                style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, border: editingWorkout.skipWarmup ? "1px solid #888" : "1px solid #F7DC6F", background: "transparent", color: editingWorkout.skipWarmup ? "#888" : "#F7DC6F", cursor: "pointer", fontWeight: 600 }}
+              >{editingWorkout.skipWarmup ? "Skipped" : "Included"}</button>
+            </div>
             <PhaseEditor
               title="Warm-up"
               color="#F7DC6F"
@@ -1065,6 +1076,13 @@ export default function WorkoutApp() {
             />
 
             <PhaseEditor
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, marginTop: 12 }}>
+              <span style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Cool Down</span>
+              <button
+                onClick={() => setEditingWorkout({ ...editingWorkout, skipCooldown: !editingWorkout.skipCooldown })}
+                style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, border: editingWorkout.skipCooldown ? "1px solid #888" : "1px solid #4ECDC4", background: "transparent", color: editingWorkout.skipCooldown ? "#888" : "#4ECDC4", cursor: "pointer", fontWeight: 600 }}
+              >{editingWorkout.skipCooldown ? "Skipped" : "Included"}</button>
+            </div>
               title="Cool Down"
               color="#4ECDC4"
               exercises={editingWorkout.cooldown}
