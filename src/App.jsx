@@ -41,7 +41,7 @@ function formatTime(s) {
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180];
 
 // ── Phase Editor (used for warm-up, workout exercises, cool-down) ──
-function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color, collapsible, collapsed, onToggleCollapse, sectionDuration }) {
+function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color, collapsible, collapsed, onToggleCollapse, sectionDuration, skipped, onSkip }) {
   const addExercise = () => {
     setExercises([...exercises, { name: "", duration: 60 }]);
   };
@@ -65,6 +65,11 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
     <div style={s.phaseBlock}>
       <div onClick={collapsible ? onToggleCollapse : undefined} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: collapsed ? 0 : 16, cursor: collapsible ? "pointer" : "default" }}>
         <h2 style={{ ...s.phaseTitle, color, flex: 1 }}>{title}</h2>
+        {onSkip && (
+          <button onClick={(e) => { e.stopPropagation(); onSkip(); }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 20, border: skipped ? "1px solid #555" : `1px solid ${color}`, background: "transparent", color: skipped ? "#555" : color, cursor: "pointer", fontWeight: 600, marginRight: 6, flexShrink: 0 }}>
+            {skipped ? "Skipped" : "Included"}
+          </button>
+        )}
         {sectionDuration !== undefined && <span style={{ fontSize: 12, color: "#666", fontFamily: "'Space Mono', monospace", fontWeight: 600 }}>{sectionDuration}</span>}
         {collapsible && <span style={{ color: "#555", fontSize: 18, transition: "transform 0.2s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>}
       </div>
@@ -1045,13 +1050,6 @@ export default function WorkoutApp() {
               style={s.workoutNameInput}
             />
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Warm-up</span>
-              <button
-                onClick={() => setEditingWorkout({ ...editingWorkout, skipWarmup: !editingWorkout.skipWarmup })}
-                style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, border: editingWorkout.skipWarmup ? "1px solid #888" : "1px solid #F7DC6F", background: "transparent", color: editingWorkout.skipWarmup ? "#888" : "#F7DC6F", cursor: "pointer", fontWeight: 600 }}
-              >{editingWorkout.skipWarmup ? "Skipped" : "Included"}</button>
-            </div>
             <PhaseEditor
               title="Warm-up"
               color="#F7DC6F"
@@ -1061,6 +1059,8 @@ export default function WorkoutApp() {
               collapsible={true}
               collapsed={warmupCollapsed}
               onToggleCollapse={() => setWarmupCollapsed(!warmupCollapsed)}
+              skipped={editingWorkout.skipWarmup}
+              onSkip={() => setEditingWorkout({ ...editingWorkout, skipWarmup: !editingWorkout.skipWarmup })}
             sectionDuration={formatTime(editingWorkout.warmup.reduce((a,e) => a + (e.name.trim() ? e.duration : 0), 0))}
             />
 
@@ -1076,13 +1076,6 @@ export default function WorkoutApp() {
             />
 
             <PhaseEditor
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, marginTop: 12 }}>
-              <span style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Cool Down</span>
-              <button
-                onClick={() => setEditingWorkout({ ...editingWorkout, skipCooldown: !editingWorkout.skipCooldown })}
-                style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, border: editingWorkout.skipCooldown ? "1px solid #888" : "1px solid #4ECDC4", background: "transparent", color: editingWorkout.skipCooldown ? "#888" : "#4ECDC4", cursor: "pointer", fontWeight: 600 }}
-              >{editingWorkout.skipCooldown ? "Skipped" : "Included"}</button>
-            </div>
               title="Cool Down"
               color="#4ECDC4"
               exercises={editingWorkout.cooldown}
@@ -1091,6 +1084,8 @@ export default function WorkoutApp() {
               collapsible={true}
               collapsed={cooldownCollapsed}
               onToggleCollapse={() => setCooldownCollapsed(!cooldownCollapsed)}
+              skipped={editingWorkout.skipCooldown}
+              onSkip={() => setEditingWorkout({ ...editingWorkout, skipCooldown: !editingWorkout.skipCooldown })}
             sectionDuration={formatTime(editingWorkout.cooldown.reduce((a,e) => a + (e.name.trim() ? e.duration : 0), 0))}
             />
 
