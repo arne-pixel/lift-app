@@ -371,11 +371,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
                 </span>
               </div>
             </div>
-            <div style={{ marginTop: 32, textAlign: "center" }}>
-              <p style={{ color: "#f0f0f0", fontSize: 32, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", marginBottom: 0 }}>
-                {current.nextName || "—"}
-              </p>
-            </div>
+            <h1 style={{ ...s.activeExName, marginTop: 24, marginBottom: 0 }}>{current.nextName || "—"}</h1>
           </>
         ) : (
           <>
