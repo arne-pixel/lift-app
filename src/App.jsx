@@ -83,7 +83,6 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-            <span style={s.durationLabel}>Duur:</span>
             <button onClick={() => update(i, "duration", Math.max(10, ex.duration - 10))} style={s.smallBtn}>−10</button>
             <button onClick={() => update(i, "duration", Math.max(5, ex.duration - 5))} style={s.smallBtn}>−5</button>
             <span style={s.durationValue}>{formatTime(ex.duration)}</span>
@@ -313,9 +312,25 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         <button onClick={handleStop} style={s.stopBtn}>
           ✕ Stop
         </button>
-        <div style={s.phasePill}>
-          <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
-          <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={s.phasePill}>
+            <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
+            <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
+          </div>
+          {current.phase === "Warm-up" && (
+            <button
+              onClick={() => {
+                const firstNonWarmup = queue.findIndex(item => item.phase !== "Warm-up");
+                if (firstNonWarmup !== -1) {
+                  setCurrentIdx(firstNonWarmup);
+                  setRemaining(queue[firstNonWarmup].duration);
+                }
+              }}
+              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, border: "1px solid #a78bfa", background: "transparent", color: "#a78bfa", cursor: "pointer", fontWeight: 600 }}
+            >
+              Skip warmup
+            </button>
+          )}
         </div>
         <button onClick={handleFinish} style={{ ...s.stopBtn, color: "#4ECDC4", borderColor: "#4ECDC440", background: "none" }}>
           ✓ Klaar
