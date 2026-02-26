@@ -254,6 +254,16 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
     onFinish();
   };
 
+  const handleFinish = () => {
+    clearInterval(intervalRef.current);
+    clearInterval(elapsedRef.current);
+    setIsRunning(false);
+    const exercisesCompleted = queue.slice(0, currentIdx + 1).filter(q => q.type === "exercise").length;
+    const exercisesTotal = queue.filter(q => q.type === "exercise").length;
+    if (onSaveHistory) onSaveHistory(exercisesCompleted, exercisesTotal, totalElapsed);
+    onFinish();
+  };
+
   const current = queue[currentIdx];
   if (!current && !finished) {
     return (
@@ -422,6 +432,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={goToPrevious} style={{ ...s.skipBtn, opacity: currentIdx === 0 ? 0.3 : 1 }} disabled={currentIdx === 0}>
             ⏮ Vorige
           </button>
+          <button onClick={handleFinish} style={{ ...s.skipBtn, color: "#4ECDC4", borderColor: "#4ECDC440" }}>
+            ✓ Klaar
+          </button>
           <button onClick={skipCurrent} style={s.skipBtn}>
             Volgende ⏭
           </button>
@@ -443,8 +456,95 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 0; }
 `;
 
+// ── Login Screen ──
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const { supabase } = await import('./supabase.js');
+      let result;
+      if (isRegister) {
+        result = await supabase.auth.signUp({ email, password });
+      } else {
+        result = await supabase.auth.signInWithPassword({ email, password });
+      }
+      if (result.error) throw result.error;
+      if (result.data?.user) {
+        onLogin(result.data.user);
+      } else if (isRegister) {
+        setError("Account aangemaakt! Probeer nu in te loggen.");
+        setIsRegister(false);
+      }
+    } catch (err) {
+      setError(err.message || "Er is een fout opgetreden");
+    }
+    setLoading(false);
+  };
+
+  const th = localStorage.getItem('liftTheme') || 'dark';
+  const isDark = th !== 'light';
+  return (
+    <div style={{ ..._darkS.container, background: isDark ? "#0d0d1a" : "#f5f5f7" }}>
+      <style>{globalCSS}</style>
+      <div style={_darkS.centerScreen}>
+        <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: isDark ? "#f0f0f0" : "#1a1a2e", letterSpacing: -1, marginBottom: 4 }}>
+          LIFT<span style={{ color: "#FF6B6B" }}>.</span>
+        </h1>
+        <p style={{ color: "#555", fontSize: 12, letterSpacing: 2, textTransform: "uppercase", marginBottom: 48 }}>WORKOUT TRACKER</p>
+        <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 320 }}>
+          <div style={{ marginBottom: 16 }}>
+            <input
+              type="email"
+              placeholder="E-mailadres"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              style={{ width: "100%", padding: "14px 16px", background: isDark ? "#13132a" : "#ffffff", border: isDark ? "1px solid #1a1a35" : "1px solid #d0d0d8", borderRadius: 12, color: isDark ? "#f0f0f0" : "#1a1a2e", fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <input
+              type="password"
+              placeholder="Wachtwoord"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              style={{ width: "100%", padding: "14px 16px", background: isDark ? "#13132a" : "#ffffff", border: isDark ? "1px solid #1a1a35" : "1px solid #d0d0d8", borderRadius: 12, color: isDark ? "#f0f0f0" : "#1a1a2e", fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+            />
+          </div>
+          {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", padding: "16px", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)", color: "#0d0d1a", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: loading ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}
+          >
+            {loading ? "..." : (isRegister ? "Registreren" : "Inloggen")}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsRegister(!isRegister); setError(""); }}
+            style={{ width: "100%", padding: "12px", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+          >
+            {isRegister ? "Al een account? Inloggen" : "Nieuw account aanmaken"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──
 export default function WorkoutApp() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [screen, setScreen] = useState("home");
   const [workouts, setWorkouts] = useState([]);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -468,12 +568,41 @@ export default function WorkoutApp() {
     } catch { return null; }
   };
 
-  // Load workouts from Supabase on mount
+  // Initialize auth and load data
   useEffect(() => {
-    loadWorkouts();
-    loadSettings();
-    loadHistory();
+    const initAuth = async () => {
+      try {
+        const { supabase } = await import('./supabase.js');
+        window.__supabase = supabase;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+          window.__userId = session.user.id;
+        }
+        supabase.auth.onAuthStateChange((event, session) => {
+          if (session?.user) {
+            setUser(session.user);
+            window.__userId = session.user.id;
+          } else {
+            setUser(null);
+            window.__userId = null;
+          }
+        });
+      } catch (err) {
+        console.log('Auth init failed:', err.message);
+      }
+      setAuthLoading(false);
+    };
+    initAuth();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadWorkouts();
+      loadSettings();
+      loadHistory();
+    }
+  }, [user ? user.id : null]);
 
   const loadWorkouts = async () => {
     setLoading(true);
@@ -481,9 +610,11 @@ export default function WorkoutApp() {
     try {
       const { supabase } = await import('./supabase.js');
       window.__supabase = supabase;
+      const uid = window.__userId;
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
+        .eq('user_id', uid)
         .order('created_at', { ascending: false });
       if (error) throw error;
       const mapped = data.map(row => ({
@@ -505,7 +636,14 @@ export default function WorkoutApp() {
     const loadSettings = async () => {
           try {
                   const { supabase } = await import('./supabase.js');
-                  const { data, error } = await supabase.from('settings').select('*').eq('user_id', 'default').single();
+                  const uid = window.__userId;
+      let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
+      if (error && error.code === 'PGRST116') {
+        await supabase.from('settings').insert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' });
+        const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
+        data = result.data;
+        error = result.error;
+      }
                   if (error) throw error;
                   if (data) {
                             setTheme(data.theme || 'dark');
@@ -523,7 +661,8 @@ export default function WorkoutApp() {
     const saveSettings = async (updates) => {
           try {
                   const { supabase } = await import('./supabase.js');
-                  await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('user_id', 'default');
+                  const uid = window.__userId;
+      await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('auth_user_id', uid);
           } catch (err) {
                   console.log('Settings save failed:', err.message);
           }
@@ -532,9 +671,11 @@ export default function WorkoutApp() {
   const loadHistory = async () => {
     try {
       const { supabase } = await import('./supabase.js');
+      const uid = window.__userId;
       const { data, error } = await supabase
         .from('workout_history')
         .select('*')
+        .eq('user_id', uid)
         .order('completed_at', { ascending: false });
       if (error) throw error;
       setHistory(data || []);
@@ -546,12 +687,14 @@ export default function WorkoutApp() {
   const saveHistory = async (exercisesCompleted, exercisesTotal, durationSeconds) => {
     try {
       const { supabase } = await import('./supabase.js');
+      const uid = window.__userId;
       await supabase.from('workout_history').insert({
         workout_id: activeWorkout ? activeWorkout.id : null,
         workout_name: activeWorkout ? activeWorkout.name : 'Onbekend',
         exercises_completed: exercisesCompleted,
         exercises_total: exercisesTotal,
         duration_seconds: durationSeconds,
+        user_id: uid,
       });
       await loadHistory();
     } catch (err) {
@@ -681,6 +824,34 @@ export default function WorkoutApp() {
     const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return d(w.warmup) + workoutTotal + d(w.cooldown);
   };
 
+  const handleLogout = async () => {
+    try {
+      const { supabase } = await import('./supabase.js');
+      await supabase.auth.signOut();
+      setUser(null);
+      setWorkouts([]);
+      setHistory([]);
+      setScreen("home");
+    } catch (err) {
+      console.log('Logout failed:', err.message);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div style={_darkS.container}>
+        <style>{globalCSS}</style>
+        <div style={_darkS.centerScreen}>
+          <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: "#f0f0f0", letterSpacing: -1 }}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen onLogin={(u) => { setUser(u); window.__userId = u.id; }} />;
+  }
+
   if (screen === "active" && activeWorkout) {
     return (
       <ActiveSession
@@ -702,7 +873,7 @@ export default function WorkoutApp() {
                           <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>}
-                                            <button onClick={() => setScreen("history")} style={s.newWorkoutBtn}>📋</button>
+                                            <button onClick={() => setScreen("history")} style={{ ...s.newWorkoutBtn, fontSize: 18, letterSpacing: 1 }}>≡</button>
                                             <button onClick={() => setScreen("settings")} style={s.newWorkoutBtn}>⚙</button>
               <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>
                                     </div>
@@ -878,7 +1049,7 @@ export default function WorkoutApp() {
         <div style={{ padding: "0 20px" }}>
           {history.length === 0 ? (
             <div style={s.emptyState}>
-              <span style={{ fontSize: 48, marginBottom: 12 }}>📋</span>
+              <span style={{ fontSize: 48, marginBottom: 12 }}>📝</span>
               <p style={{ color: "#555", fontSize: 14 }}>Nog geen workouts voltooid.</p>
             </div>
           ) : (
@@ -958,6 +1129,15 @@ export default function WorkoutApp() {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div style={{ paddingBottom: 8 }}>
+            <button
+              onClick={handleLogout}
+              style={{ width: "100%", padding: "14px", background: "none", border: "1px solid #FF6B6B40", borderRadius: 12, color: "#FF6B6B", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+            >
+              Uitloggen
+            </button>
           </div>
           <div style={{ height: 40 }} />
         </div>
