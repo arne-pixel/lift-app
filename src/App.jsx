@@ -433,12 +433,28 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         {/* Navigation */}
         <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
           <button onClick={goToPrevious} style={{ ...s.skipBtn, opacity: currentIdx === 0 ? 0.3 : 1 }} disabled={currentIdx === 0}>
-            ⏮ Vorige
+            Vorige
           </button>
           <button onClick={skipCurrent} style={s.skipBtn}>
-            Volgende ⏭
+            Volgende
           </button>
         </div>
+        {/* Next up */}
+        {(() => {
+          const upcoming = [queue[currentIdx + 1], queue[currentIdx + 2]].filter(Boolean);
+          if (upcoming.length === 0) return null;
+          return (
+            <div style={{ marginTop: 28, width: "100%" }}>
+              <p style={{ color: "#555", fontSize: 11, textTransform: "uppercase", letterSpacing: 2, marginBottom: 10 }}>Next up</p>
+              {upcoming.map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, opacity: i === 0 ? 0.85 : 0.5 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: item.type === "rest" ? "#6ec6ff" : "#a78bfa", flexShrink: 0 }} />
+                  <span style={{ color: "#999", fontSize: 15, fontWeight: i === 0 ? 600 : 400 }}>{item.name}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
