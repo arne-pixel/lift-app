@@ -463,6 +463,7 @@ export default function WorkoutApp() {
   // Load workouts from Supabase on mount
   useEffect(() => {
     loadWorkouts();
+    loadSettings();
   }, []);
 
   const loadWorkouts = async () => {
@@ -491,6 +492,33 @@ export default function WorkoutApp() {
     }
     setLoading(false);
   };
+
+    const loadSettings = async () => {
+          try {
+                  const { supabase } = await import('./supabase.js');
+                  const { data, error } = await supabase.from('settings').select('*').eq('user_id', 'default').single();
+                  if (error) throw error;
+                  if (data) {
+                            setTheme(data.theme || 'dark');
+                            setBeepType(data.beep_type || 'classic');
+                            setFinalBeepType(data.final_beep_type || 'classic');
+                            localStorage.setItem('liftTheme', data.theme || 'dark');
+                            localStorage.setItem('beepType', data.beep_type || 'classic');
+                            localStorage.setItem('finalBeepType', data.final_beep_type || 'classic');
+                  }
+          } catch (err) {
+                  console.log('Settings load failed, using localStorage:', err.message);
+          }
+    };
+
+    const saveSettings = async (updates) => {
+          try {
+                  const { supabase } = await import('./supabase.js');
+                  await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('user_id', 'default');
+          } catch (err) {
+                  console.log('Settings save failed:', err.message);
+          }
+    };
 
   const saveToSupabase = async (workout, isUpdate = false) => {
     setSaving(true);
@@ -810,7 +838,7 @@ export default function WorkoutApp() {
           <div style={s.phaseBlock}>
             <div style={{ display: "flex", gap: 8 }}>
               {[{id:"dark",label:"Dark"},{id:"light",label:"Light"}].map(opt => (
-                <button key={opt.id} onClick={() => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
+                <button key={opt.id} onClick={() => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); saveSettings({ theme: opt.id }); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
                   <span style={{ color: theme === opt.id ? "#4ECDC4" : "#888", fontSize: 14, fontWeight: 700 }}>{opt.label}</span>
                 </button>
               ))}
@@ -821,7 +849,7 @@ export default function WorkoutApp() {
             <p style={{ fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 12 }}>Countdown (laatste 3s)</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[{id:"classic",label:"Classic",desc:"Korte square beep"},{id:"soft",label:"Soft",desc:"Zachte sine toon"},{id:"sharp",label:"Sharp",desc:"Scherpe sawtooth"},{id:"low",label:"Low",desc:"Lage triangle toon"},{id:"double",label:"Double",desc:"Dubbele snelle beep"}].map(opt => (
-                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); saveSettings({ beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                   <span style={{ width:18,height:18,borderRadius:"50%",border:beepType===opt.id?"2px solid #4ECDC4":"2px solid #444",background:beepType===opt.id?"#4ECDC4":"none",flexShrink:0 }} />
                   <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                 </button>
@@ -831,7 +859,7 @@ export default function WorkoutApp() {
               <p style={{ fontSize:13,color:"#888",fontWeight:600,marginBottom:12 }}>Finale</p>
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
                 {[{id:"classic",label:"Classic",desc:"Luide square toon"},{id:"gentle",label:"Gentle",desc:"Zachte langere toon"},{id:"alarm",label:"Alarm",desc:"Hoge sawtooth alert"},{id:"deep",label:"Deep",desc:"Diepe bass toon"},{id:"triple",label:"Triple",desc:"Drie snelle beeps"}].map(opt => (
-                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); saveSettings({ final_beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                     <span style={{ width:18,height:18,borderRadius:"50%",border:finalBeepType===opt.id?"2px solid #FF6B6B":"2px solid #444",background:finalBeepType===opt.id?"#FF6B6B":"none",flexShrink:0 }} />
                     <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                   </button>
