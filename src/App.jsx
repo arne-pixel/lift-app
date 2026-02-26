@@ -780,7 +780,8 @@ export default function WorkoutApp() {
     try {
       const { supabase } = await import('./supabase.js');
       const row = {
-        name: workout.name,
+        user_id: window.__userId,
+      name: workout.name,
         warmup: workout.warmup,
         workout: workout.workout,
         cooldown: workout.cooldown,
