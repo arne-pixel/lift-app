@@ -388,10 +388,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
               </div>
             </div>
             <div style={{ marginTop: 32, textAlign: "center" }}>
-              <p style={{ color: "#555", fontSize: 12, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
-                Volgende oefening
-              </p>
-              <p style={{ color: "#f0f0f0", fontSize: 22, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+              <p style={{ color: "#f0f0f0", fontSize: 32, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", marginBottom: 0 }}>
                 {current.nextName || "—"}
               </p>
             </div>
@@ -456,7 +453,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         </div>
         {/* Next up */}
         {(() => {
-          const upcoming = [queue[currentIdx + 1], queue[currentIdx + 2]].filter(Boolean);
+          const upcoming = [queue[currentIdx + 1], queue[currentIdx + 2], queue[currentIdx + 3]].filter(Boolean);
           if (upcoming.length === 0) return null;
           return (
             <div style={{ marginTop: 28, width: "100%" }}>
