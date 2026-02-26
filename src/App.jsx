@@ -419,7 +419,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
           <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={s.playBtn}>▶</button>
+            <button onClick={() => setIsRunning(true)} style={s.playBtn}><svg width="14" height="16" viewBox="0 0 12 14" fill="currentColor"><polygon points="0,0 12,7 0,14"/></svg></button>
           ) : (
             <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}>⏸</button>
           )}
@@ -1115,7 +1115,7 @@ export default function WorkoutApp() {
                 onClick={handleSaveAndStart}
                 style={{ ...s.startBtn, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
               >
-                ▶ Save & Start
+                <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor" style={{display:"inline-block",verticalAlign:"middle",marginRight:6}}><polygon points="0,0 12,7 0,14"/></svg>Save & Start
               </button>
             )}
 
