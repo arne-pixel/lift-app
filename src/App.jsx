@@ -312,25 +312,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         <button onClick={handleStop} style={s.stopBtn}>
           ✕ Stop
         </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={s.phasePill}>
-            <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
-            <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
-          </div>
-          {current.phase === "Warm-up" && (
-            <button
-              onClick={() => {
-                const firstNonWarmup = queue.findIndex(item => item.phase !== "Warm-up");
-                if (firstNonWarmup !== -1) {
-                  setCurrentIdx(firstNonWarmup);
-                  setRemaining(queue[firstNonWarmup].duration);
-                }
-              }}
-              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, border: "1px solid #a78bfa", background: "transparent", color: "#a78bfa", cursor: "pointer", fontWeight: 600 }}
-            >
-              Skip warmup
-            </button>
-          )}
+        <div style={s.phasePill}>
+          <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
+          <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
         </div>
         <button onClick={handleFinish} style={{ ...s.stopBtn, color: "#4ECDC4", borderColor: "#4ECDC440", background: "none" }}>
           ✓ Klaar
@@ -451,6 +435,17 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
             Volgende
           </button>
         </div>
+        {current.phase === "Warm-up" && (
+          <span
+            onClick={() => {
+              const firstNonWarmup = queue.findIndex(item => item.phase !== "Warm-up");
+              if (firstNonWarmup !== -1) { setCurrentIdx(firstNonWarmup); setRemaining(queue[firstNonWarmup].duration); }
+            }}
+            style={{ display: "block", textAlign: "center", marginTop: 16, color: "#555", fontSize: 12, cursor: "pointer", letterSpacing: 1 }}
+          >
+            skip warmup
+          </span>
+        )}
         {/* Next up */}
         {(() => {
           const upcoming = [queue[currentIdx + 1], queue[currentIdx + 2], queue[currentIdx + 3]].filter(Boolean);
