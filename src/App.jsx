@@ -218,7 +218,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   useEffect(() => {
     if (finished && onSaveHistory) {
       const exercisesTotal = queue.filter(q => q.type === "exercise").length;
-      onSaveHistory(exercisesTotal, exercisesTotal, totalElapsed);
+      onSaveHistory(exercisesTotal, exercisesTotal, totalElapsed, plan.id, plan.name);
     }
   }, [finished]);
 
@@ -260,7 +260,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
     setIsRunning(false);
     const exercisesCompleted = queue.slice(0, currentIdx + 1).filter(q => q.type === "exercise").length;
     const exercisesTotal = queue.filter(q => q.type === "exercise").length;
-    if (onSaveHistory) onSaveHistory(exercisesCompleted, exercisesTotal, totalElapsed);
+    if (onSaveHistory) onSaveHistory(exercisesCompleted, exercisesTotal, totalElapsed, plan.id, plan.name);
     onFinish();
   };
 
@@ -315,8 +315,11 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         </button>
         <div style={s.phasePill}>
           <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
+          <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
         </div>
-        <span style={s.elapsedSmall}>{formatTime(totalElapsed)}</span>
+        <button onClick={handleFinish} style={{ ...s.stopBtn, color: "#4ECDC4", borderColor: "#4ECDC440", background: "none" }}>
+          ✓ Klaar
+        </button>
       </div>
 
       {/* Progress bar */}
@@ -431,9 +434,6 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
           <button onClick={goToPrevious} style={{ ...s.skipBtn, opacity: currentIdx === 0 ? 0.3 : 1 }} disabled={currentIdx === 0}>
             ⏮ Vorige
-          </button>
-          <button onClick={handleFinish} style={{ ...s.skipBtn, color: "#4ECDC4", borderColor: "#4ECDC440" }}>
-            ✓ Klaar
           </button>
           <button onClick={skipCurrent} style={s.skipBtn}>
             Volgende ⏭
@@ -684,13 +684,13 @@ export default function WorkoutApp() {
     }
   };
 
-  const saveHistory = async (exercisesCompleted, exercisesTotal, durationSeconds) => {
+  const saveHistory = async (exercisesCompleted, exercisesTotal, durationSeconds, workoutId, workoutName) => {
     try {
       const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
       await supabase.from('workout_history').insert({
-        workout_id: activeWorkout ? activeWorkout.id : null,
-        workout_name: activeWorkout ? activeWorkout.name : 'Onbekend',
+        workout_id: workoutId || null,
+        workout_name: workoutName || 'Onbekend',
         exercises_completed: exercisesCompleted,
         exercises_total: exercisesTotal,
         duration_seconds: durationSeconds,
