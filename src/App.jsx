@@ -76,7 +76,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
             <span style={s.exNumber}>{i + 1}</span>
             <input
               type="text"
-              placeholder="Oefening naam..."
+              placeholder="Exercise name..."
               value={ex.name}
               onChange={(e) => update(i, "name", e.target.value)}
               style={s.nameInput}
@@ -98,7 +98,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
       ))}
 
       <button onClick={addExercise} style={{ ...s.addBtn, borderColor: color + "40", color }}>
-        ＋ Oefening toevoegen
+        ＋ Add exercise
       </button>
 
       {showRest && (
@@ -111,7 +111,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
               </button>
             ))}
           </div>
-          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rusttijd tussen oefeningen:</span>
+          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Rest time between exercises:</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
             {REST_OPTIONS.map((t) => (
               <button key={t} onClick={() => setRestTime(t)} style={{ ...s.restChip, background: restTime === t ? color : "#1a1a2e", color: restTime === t ? "#0d0d1a" : "#888" }}>
@@ -150,7 +150,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           const nextEx = valid[i + 1];
           q.push({
             type: "rest",
-            name: "Rust",
+            name: "Rest",
             duration: restTime,
             phase,
             nextName: nextEx ? nextEx.name : "",
@@ -269,7 +269,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
       <div style={s.container}>
         <style>{globalCSS}</style>
         <div style={{ ...s.centerScreen, animation: "fadeIn 0.3s ease" }}>
-          <p style={{ color: "#888", fontSize: 16 }}>Geen oefeningen gevonden. Voeg eerst oefeningen toe.</p>
+          <p style={{ color: "#888", fontSize: 16 }}>No exercises found. Add exercises first.</p>
           <button onClick={onFinish} style={{ ...s.primaryBtn, marginTop: 24 }}>Terug</button>
         </div>
       </div>
@@ -282,15 +282,15 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         <style>{globalCSS}</style>
         <div style={{ ...s.centerScreen, animation: "fadeIn 0.4s ease" }}>
           <span style={{ fontSize: 64, marginBottom: 16 }}>🎉</span>
-          <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 32, color: "#4ECDC4", marginBottom: 8 }}>Klaar!</h1>
+          <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 32, color: "#4ECDC4", marginBottom: 8 }}>Done!</h1>
           <p style={{ color: "#888", fontSize: 15, marginBottom: 4 }}>Totale tijd</p>
           <p style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, color: "#f0f0f0", marginBottom: 32 }}>
             {formatTime(totalElapsed)}
           </p>
           <p style={{ color: "#555", fontSize: 13, marginBottom: 32 }}>
-            {queue.filter((q) => q.type === "exercise").length} oefeningen voltooid
+            {queue.filter((q) => q.type === "exercise").length} exercises completed
           </p>
-          <button onClick={onFinish} style={s.primaryBtn}>Terug naar overzicht</button>
+          <button onClick={onFinish} style={s.primaryBtn}>Back to overview</button>
         </div>
       </div>
     );
@@ -317,7 +317,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
         </div>
         <button onClick={handleFinish} style={{ ...s.stopBtn, color: "#4ECDC4", borderColor: "#4ECDC440", background: "none" }}>
-          ✓ Klaar
+          ✓ Done
         </button>
       </div>
 
@@ -376,7 +376,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         ) : (
           <>
             <p style={{ color: "#555", fontSize: 12, textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>
-              Oefening {currentExIdx} / {totalExercises}
+              Exercise {currentExIdx} / {totalExercises}
             </p>
             <h1 style={s.activeExName}>{current.name}</h1>
             <div style={s.bigTimerWrap}>
@@ -425,10 +425,10 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         {/* Navigation */}
         <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
           <button onClick={goToPrevious} style={{ ...s.skipBtn, opacity: currentIdx === 0 ? 0.3 : 1 }} disabled={currentIdx === 0}>
-            Vorige
+            Previous
           </button>
           <button onClick={skipCurrent} style={s.skipBtn}>
-            Volgende
+            Next
           </button>
         </div>
         {current.phase === "Warm-up" && (
@@ -439,7 +439,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
             }}
             style={{ display: "block", textAlign: "center", marginTop: 16, color: "#555", fontSize: 12, cursor: "pointer", letterSpacing: 1 }}
           >
-            skip warmup
+            skip warm-up
           </span>
         )}
         {/* Next up */}
@@ -532,7 +532,7 @@ function LoginScreen({ onLogin }) {
           <div style={{ marginBottom: 24 }}>
             <input
               type="password"
-              placeholder="Wachtwoord"
+              placeholder="Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
@@ -545,14 +545,14 @@ function LoginScreen({ onLogin }) {
             disabled={loading}
             style={{ width: "100%", padding: "16px", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)", color: "#0d0d1a", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: loading ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}
           >
-            {loading ? "..." : (isRegister ? "Registreren" : "Inloggen")}
+            {loading ? "..." : (isRegister ? "Register" : "Log in")}
           </button>
           <button
             type="button"
             onClick={() => { setIsRegister(!isRegister); setError(""); }}
             style={{ width: "100%", padding: "12px", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
           >
-            {isRegister ? "Al een account? Inloggen" : "Nieuw account aanmaken"}
+            {isRegister ? "Already have an account? Log in" : "Create new account"}
           </button>
         </form>
       </div>
@@ -914,7 +914,7 @@ export default function WorkoutApp() {
             ) : workouts.length === 0 ? (
               <div style={s.emptyState}>
                 <span style={{ fontSize: 48, marginBottom: 12 }}>🏋️</span>
-                <p style={{ color: "#555", fontSize: 14 }}>Nog geen workouts. Maak je eerste aan!</p>
+                <p style={{ color: "#555", fontSize: 14 }}>No workouts yet. Create your first one!</p>
               </div>
             ) : (
               workouts.map((w, i) => (
@@ -974,14 +974,14 @@ export default function WorkoutApp() {
               ← Terug
             </button>
             <button onClick={handleSave} style={s.saveBtn}>
-              Opslaan ✓
+              Save ✓
             </button>
           </div>
 
           <div style={{ padding: "0 20px" }}>
             <input
               type="text"
-              placeholder="Workout naam..."
+              placeholder="Workout name..."
               value={editingWorkout.name}
               onChange={(e) => setEditingWorkout({ ...editingWorkout, name: e.target.value })}
               style={s.workoutNameInput}
@@ -1032,11 +1032,11 @@ export default function WorkoutApp() {
                       editingWorkout.workout.filter((e) => e.name.trim()).length +
                       editingWorkout.cooldown.filter((e) => e.name.trim()).length}
                   </span>
-                  <span style={s.summaryLabel}>Oefeningen</span>
+                  <span style={s.summaryLabel}>Exercises</span>
                 </div>
                 <div style={{ textAlign: "center" }}>
                   <span style={s.summaryVal}>{formatTime(totalDuration(editingWorkout))}</span>
-                  <span style={s.summaryLabel}>Geschatte duur</span>
+                  <span style={s.summaryLabel}>Estimated duration</span>
                 </div>
               </div>
             </div>
@@ -1048,7 +1048,7 @@ export default function WorkoutApp() {
                 onClick={handleSaveAndStart}
                 style={{ ...s.startBtn, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
               >
-                ▶ Opslaan & Starten
+                ▶ Save & Start
               </button>
             )}
 
@@ -1061,15 +1061,15 @@ export default function WorkoutApp() {
     {screen === "history" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Terug</button>
-          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Geschiedenis</h2>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
+          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>History</h2>
           <div style={{ width: 60 }} />
         </div>
         <div style={{ padding: "0 20px" }}>
           {history.length === 0 ? (
             <div style={s.emptyState}>
               <span style={{ fontSize: 48, marginBottom: 12 }}>📝</span>
-              <p style={{ color: "#555", fontSize: 14 }}>Nog geen workouts voltooid.</p>
+              <p style={{ color: "#555", fontSize: 14 }}>No workouts completed yet.</p>
             </div>
           ) : (
             history.map((item, i) => {
@@ -1090,7 +1090,7 @@ export default function WorkoutApp() {
                       <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: pct === 100 ? "#4ECDC4" : "#F7DC6F" }}>
                         {pct}%
                       </span>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>voltooid</p>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>completed</p>
                     </div>
                   </div>
                   {item.duration_seconds > 0 && (
@@ -1111,12 +1111,12 @@ export default function WorkoutApp() {
     {screen === "settings" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Terug</button>
-          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Instellingen</h2>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
+          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Settings</h2>
           <div style={{ width: 60 }} />
         </div>
         <div style={{ padding: "0 20px" }}>
-          <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 8 }}>Uiterlijk</h3>
+          <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 8 }}>Appearance</h3>
           <div style={s.phaseBlock}>
             <div style={{ display: "flex", gap: 8 }}>
               {[{id:"dark",label:"Dark"},{id:"light",label:"Light"}].map(opt => (
@@ -1126,11 +1126,11 @@ export default function WorkoutApp() {
               ))}
             </div>
           </div>
-          <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 24 }}>Geluid</h3>
+          <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 24 }}>Sound</h3>
           <div style={s.phaseBlock}>
-            <p style={{ fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 12 }}>Countdown (laatste 3s)</p>
+            <p style={{ fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 12 }}>Countdown (last 3s)</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {[{id:"classic",label:"Classic",desc:"Korte square beep"},{id:"soft",label:"Soft",desc:"Zachte sine toon"},{id:"sharp",label:"Sharp",desc:"Scherpe sawtooth"},{id:"low",label:"Low",desc:"Lage triangle toon"},{id:"double",label:"Double",desc:"Dubbele snelle beep"}].map(opt => (
+              {[{id:"classic",label:"Classic",desc:"Short square beep"},{id:"soft",label:"Soft",desc:"Soft sine tone"},{id:"sharp",label:"Sharp",desc:"Sharp sawtooth"},{id:"low",label:"Low",desc:"Low triangle tone"},{id:"double",label:"Double",desc:"Double quick beep"}].map(opt => (
                 <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); saveSettings({ beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                   <span style={{ width:18,height:18,borderRadius:"50%",border:beepType===opt.id?"2px solid #4ECDC4":"2px solid #444",background:beepType===opt.id?"#4ECDC4":"none",flexShrink:0 }} />
                   <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
@@ -1138,9 +1138,9 @@ export default function WorkoutApp() {
               ))}
             </div>
             <div style={{ borderTop:_currentTheme==='light'?"1px solid #e0e0e5":"1px solid #1a1a35",marginTop:16,paddingTop:16 }}>
-              <p style={{ fontSize:13,color:"#888",fontWeight:600,marginBottom:12 }}>Finale</p>
+              <p style={{ fontSize:13,color:"#888",fontWeight:600,marginBottom:12 }}>Final</p>
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
-                {[{id:"classic",label:"Classic",desc:"Luide square toon"},{id:"gentle",label:"Gentle",desc:"Zachte langere toon"},{id:"alarm",label:"Alarm",desc:"Hoge sawtooth alert"},{id:"deep",label:"Deep",desc:"Diepe bass toon"},{id:"triple",label:"Triple",desc:"Drie snelle beeps"}].map(opt => (
+                {[{id:"classic",label:"Classic",desc:"Loud square tone"},{id:"gentle",label:"Gentle",desc:"Soft longer tone"},{id:"alarm",label:"Alarm",desc:"High sawtooth alert"},{id:"deep",label:"Deep",desc:"Deep bass tone"},{id:"triple",label:"Triple",desc:"Three quick beeps"}].map(opt => (
                   <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); saveSettings({ final_beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                     <span style={{ width:18,height:18,borderRadius:"50%",border:finalBeepType===opt.id?"2px solid #FF6B6B":"2px solid #444",background:finalBeepType===opt.id?"#FF6B6B":"none",flexShrink:0 }} />
                     <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
@@ -1155,7 +1155,7 @@ export default function WorkoutApp() {
               onClick={handleLogout}
               style={{ width: "100%", padding: "14px", background: "none", border: "1px solid #FF6B6B40", borderRadius: 12, color: "#FF6B6B", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
             >
-              Uitloggen
+              Log out
             </button>
           </div>
           <div style={{ height: 40 }} />
