@@ -71,7 +71,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
           </button>
         )}
         {sectionDuration !== undefined && <span style={{ fontSize: 12, color: "#666", fontFamily: "'Space Mono', monospace", fontWeight: 600 }}>{sectionDuration}</span>}
-        {collapsible && <span style={{ color: "#555", fontSize: 18, transition: "transform 0.2s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>â¾</span>}
+        {collapsible && <span style={{ color: "#555", fontSize: 18, transition: "transform 0.2s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>v</span>}
       </div>
 
       {!collapsed && (<>
@@ -88,22 +88,22 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-            <button onClick={() => update(i, "duration", Math.max(10, ex.duration - 10))} style={s.smallBtn}>â10</button>
-            <button onClick={() => update(i, "duration", Math.max(5, ex.duration - 5))} style={s.smallBtn}>â5</button>
+            <button onClick={() => update(i, "duration", Math.max(10, ex.duration - 10))} style={s.smallBtn}>-10</button>
+            <button onClick={() => update(i, "duration", Math.max(5, ex.duration - 5))} style={s.smallBtn}>-5</button>
             <span style={s.durationValue}>{formatTime(ex.duration)}</span>
             <button onClick={() => update(i, "duration", ex.duration + 5)} style={s.smallBtn}>+5</button>
             <button onClick={() => update(i, "duration", ex.duration + 10)} style={s.smallBtn}>+10</button>
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-            <button onClick={() => move(i, -1)} style={s.iconBtn} disabled={i === 0}>â</button>
-            <button onClick={() => move(i, 1)} style={s.iconBtn} disabled={i === exercises.length - 1}>â</button>
-            <button onClick={() => remove(i)} style={{ ...s.iconBtn, color: "#FF6B6B" }}>â</button>
+            <button onClick={() => move(i, -1)} style={s.iconBtn} disabled={i === 0}>↑</button>
+            <button onClick={() => move(i, 1)} style={s.iconBtn} disabled={i === exercises.length - 1}>↓</button>
+            <button onClick={() => remove(i)} style={{ ...s.iconBtn, color: "#FF6B6B" }}>×</button>
           </div>
         </div>
       ))}
 
       <button onClick={addExercise} style={{ ...s.addBtn, borderColor: color + "40", color }}>
-        ï¼ Add exercise
+        + Add exercise
       </button>
 
       {showRest && (
@@ -164,7 +164,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
       });
     };
     if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
-    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout Â· Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
+    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
     if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
     setQueue(q);
     if (q.length > 0) {
@@ -286,7 +286,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
       <div style={s.container}>
         <style>{globalCSS}</style>
         <div style={{ ...s.centerScreen, animation: "fadeIn 0.4s ease" }}>
-          <span style={{ fontSize: 64, marginBottom: 16 }}>ð</span>
+          
           <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 32, color: "#4ECDC4", marginBottom: 8 }}>Done!</h1>
           <p style={{ color: "#888", fontSize: 15, marginBottom: 4 }}>Totale tijd</p>
           <p style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, color: "#f0f0f0", marginBottom: 32 }}>
@@ -315,14 +315,14 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
       {/* Top bar */}
       <div style={s.activeTopBar}>
         <button onClick={handleStop} style={s.stopBtn}>
-          â Stop
+          Stop
         </button>
         <div style={s.phasePill}>
           <span style={{ color: phaseColor, fontWeight: 700 }}>{current.phase}</span>
           <span style={{ color: "#555", fontSize: 11, marginLeft: 6 }}>{formatTime(totalElapsed)}</span>
         </div>
         <button onClick={handleFinish} style={{ ...s.stopBtn, color: "#4ECDC4", borderColor: "#4ECDC440", background: "none" }}>
-          â Done
+          Done
         </button>
       </div>
 
@@ -376,7 +376,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
                 </span>
               </div>
             </div>
-            <h1 style={{ ...s.activeExName, marginTop: 24, marginBottom: 0 }}>{current.nextName || "â"}</h1>
+            <h1 style={{ ...s.activeExName, marginTop: 24, marginBottom: 0 }}>{current.nextName || "–"}</h1>
           </>
         ) : (
           <>
@@ -416,12 +416,12 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
 
         {/* Time adjust buttons */}
         <div style={s.adjustRow}>
-          <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>â10s</button>
-          <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>â5s</button>
+          <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
+          <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={s.playBtn}>â¶</button>
+            <button onClick={() => setIsRunning(true)} style={s.playBtn}>▶</button>
           ) : (
-            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}>â¸</button>
+            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}>⏸</button>
           )}
           <button onClick={() => adjustTime(5)} style={s.adjustBtn}>+5s</button>
           <button onClick={() => adjustTime(10)} style={s.adjustBtn}>+10s</button>
@@ -976,7 +976,7 @@ export default function WorkoutApp() {
               </div>
             ) : workouts.length === 0 ? (
               <div style={s.emptyState}>
-                <span style={{ fontSize: 48, marginBottom: 12 }}>ðï¸</span>
+                
                 <p style={{ color: "#555", fontSize: 14 }}>No workouts yet. Create your first one!</p>
               </div>
             ) : (
@@ -986,7 +986,7 @@ export default function WorkoutApp() {
                     <div style={{ flex: 1 }}>
                       <h3 style={s.workoutCardName}>{w.name}</h3>
                       <p style={s.workoutCardMeta}>
-                        â {formatTime(totalDuration(w))} totaal
+                        {formatTime(totalDuration(w))} total
                       </p>
                       {String(w.id) === String(lastCompletedId) && (
                                         <span style={{ fontSize: 10, color: "#555", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>last completed</span>
@@ -996,17 +996,17 @@ export default function WorkoutApp() {
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, marginBottom: 14 }}>
                     {w.warmup.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#F7DC6F18", color: "#F7DC6F" }}>
-                        Warm-up Â· {w.warmup.filter((e) => e.name.trim()).length}
+                        Warm-up · {w.warmup.filter((e) => e.name.trim()).length}
                       </span>
                     )}
                     {w.workout.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#FF6B6B18", color: "#FF6B6B" }}>
-                        Workout Â· {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` Â· ${w.sets}x` : ''}
+                        Workout · {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` · ${w.sets}x` : ''}
                       </span>
                     )}
                     {w.cooldown.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#4ECDC418", color: "#4ECDC4" }}>
-                        Cool Down Â· {w.cooldown.filter((e) => e.name.trim()).length}
+                        Cool Down · {w.cooldown.filter((e) => e.name.trim()).length}
                       </span>
                     )}
                   </div>
@@ -1015,10 +1015,10 @@ export default function WorkoutApp() {
                       Start
                     </button>
                     <button onClick={() => editWorkout(i)} style={{ ...s.editBtn, flex: "unset", padding: "10px 14px" }}>
-                      â
+                      Edit
                     </button>
                     <button onClick={() => deleteWorkout(i)} style={{ ...s.deleteBtn, color: confirmDeleteIdx === i ? "#FF6B6B" : "#FF6B6B50", borderColor: confirmDeleteIdx === i ? "#FF6B6B" : "#222240" }}>
-                      {confirmDeleteIdx === i ? "Sure?" : "â"}
+                      {confirmDeleteIdx === i ? "Sure?" : "×"}
                     </button>
                   </div>
                 </div>
@@ -1034,10 +1034,10 @@ export default function WorkoutApp() {
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={s.editTopBar}>
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
-              â Back
+              ← Back
             </button>
             <button onClick={handleSave} style={s.saveBtn}>
-              Save â
+              Save
             </button>
           </div>
 
@@ -1115,7 +1115,7 @@ export default function WorkoutApp() {
                 onClick={handleSaveAndStart}
                 style={{ ...s.startBtn, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
               >
-                â¶ Save & Start
+                ▶ Save & Start
               </button>
             )}
 
@@ -1128,14 +1128,14 @@ export default function WorkoutApp() {
     {screen === "history" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>â Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>History</h2>
           <div style={{ width: 60 }} />
         </div>
         <div style={{ padding: "0 20px" }}>
           {history.length === 0 ? (
             <div style={s.emptyState}>
-              <span style={{ fontSize: 48, marginBottom: 12 }}>ð</span>
+              
               <p style={{ color: "#555", fontSize: 14 }}>No workouts completed yet.</p>
             </div>
           ) : (
@@ -1151,7 +1151,7 @@ export default function WorkoutApp() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
                       <h3 style={s.workoutCardName}>{item.workout_name}</h3>
-                      <p style={s.workoutCardMeta}>{dateStr} Â· {timeStr}</p>
+                      <p style={s.workoutCardMeta}>{dateStr} · {timeStr}</p>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: pct === 100 ? "#4ECDC4" : "#F7DC6F" }}>
@@ -1162,7 +1162,7 @@ export default function WorkoutApp() {
                   </div>
                   {item.duration_seconds > 0 && (
                     <p style={{ fontSize: 12, color: "#555", marginTop: 6 }}>
-                      â± {formatTime(item.duration_seconds)}
+                      {formatTime(item.duration_seconds)}
                     </p>
                   )}
                 </div>
@@ -1178,14 +1178,14 @@ export default function WorkoutApp() {
     {screen === "notes" && !editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>â Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Notes</h2>
           <button onClick={() => setEditingNote({ id: null, title: "", content: "" })} style={{ ...s.newWorkoutBtn, fontSize: 22, lineHeight: 1 }}>+</button>
         </div>
         <div style={{ padding: "0 20px" }}>
           {notes.length === 0 ? (
             <div style={s.emptyState}>
-              <span style={{ fontSize: 48, marginBottom: 12 }}>ð</span>
+              
               <p style={{ color: "#555", fontSize: 14 }}>No notes yet. Tap + to create one.</p>
             </div>
           ) : (
@@ -1196,7 +1196,7 @@ export default function WorkoutApp() {
                     <h3 style={{ ...s.workoutCardName, marginBottom: 4 }}>{note.title || "Untitled"}</h3>
                     <p style={{ ...s.workoutCardMeta, whiteSpace: "pre-wrap", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{note.content}</p>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 18, cursor: "pointer", padding: "0 0 0 12px", flexShrink: 0 }}>â</button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 18, cursor: "pointer", padding: "0 0 0 12px", flexShrink: 0 }}>×</button>
                 </div>
               </div>
             ))
@@ -1209,9 +1209,9 @@ export default function WorkoutApp() {
     {screen === "notes" && editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>â Notes</button>
+          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>← Notes</button>
           <div style={{ width: 60 }} />
-          <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save â</button>
+          <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
         </div>
         <div style={{ padding: "0 20px", flex: 1, display: "flex", flexDirection: "column" }}>
           <input
@@ -1234,7 +1234,7 @@ export default function WorkoutApp() {
     {screen === "settings" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>â Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Settings</h2>
           <div style={{ width: 60 }} />
         </div>
