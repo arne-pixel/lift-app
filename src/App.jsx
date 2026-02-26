@@ -103,7 +103,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
 
       {showRest && (
         <div style={s.restConfig}>
-          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Aantal sets:</span>
+          <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>Number of sets:</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>
             {[1,2,3,4,5].map((n) => (
               <button key={n} onClick={() => setSets(n)} style={{ ...s.restChip, background: sets === n ? color : "#1a1a2e", color: sets === n ? "#0d0d1a" : "#888" }}>
@@ -270,7 +270,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         <style>{globalCSS}</style>
         <div style={{ ...s.centerScreen, animation: "fadeIn 0.3s ease" }}>
           <p style={{ color: "#888", fontSize: 16 }}>No exercises found. Add exercises first.</p>
-          <button onClick={onFinish} style={{ ...s.primaryBtn, marginTop: 24 }}>Terug</button>
+          <button onClick={onFinish} style={{ ...s.primaryBtn, marginTop: 24 }}>Back</button>
         </div>
       </div>
     );
@@ -946,7 +946,7 @@ export default function WorkoutApp() {
           <div style={{ ...s.header, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>}
+                            {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Saving...</span>}
                                             <button onClick={() => setScreen("history")} style={{ ...s.newWorkoutBtn, fontSize: 18, letterSpacing: 1 }}>≡</button>
                                             <button onClick={() => setScreen("settings")} style={s.newWorkoutBtn}>⚙</button>
               <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>
@@ -1013,7 +1013,7 @@ export default function WorkoutApp() {
                       ✎
                     </button>
                     <button onClick={() => deleteWorkout(i)} style={{ ...s.deleteBtn, color: confirmDeleteIdx === i ? "#FF6B6B" : "#FF6B6B50", borderColor: confirmDeleteIdx === i ? "#FF6B6B" : "#222240" }}>
-                      {confirmDeleteIdx === i ? "Zeker?" : "✕"}
+                      {confirmDeleteIdx === i ? "Sure?" : "✕"}
                     </button>
                   </div>
                 </div>
@@ -1029,7 +1029,7 @@ export default function WorkoutApp() {
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={s.editTopBar}>
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
-              ← Terug
+              ← Back
             </button>
             <button onClick={handleSave} style={s.saveBtn}>
               Save ✓
@@ -1096,7 +1096,7 @@ export default function WorkoutApp() {
 
             {/* Summary */}
             <div style={s.summaryCard}>
-              <h3 style={{ fontSize: 14, color: "#888", marginBottom: 12, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Samenvatting</h3>
+              <h3 style={{ fontSize: 14, color: "#888", marginBottom: 12, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Summary</h3>
               <div style={{ display: "flex", justifyContent: "space-around" }}>
                 <div style={{ textAlign: "center" }}>
                   <span style={s.summaryVal}>
