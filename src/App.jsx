@@ -850,6 +850,7 @@ export default function WorkoutApp() {
 // ── Styles ──
 const lightOverrides = {
   container: { background: "#f5f5f7", color: "#1a1a2e" },
+  logo: { color: "#1a1a2e" },
   workoutCard: { background: "#ffffff", border: "1px solid #e0e0e5" },
   workoutCardName: { color: "#1a1a2e" },
   workoutCardMeta: { color: "#888" },
