@@ -129,7 +129,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
 }
 
 // ── Active Timer Screen ──
-function ActiveSession({ plan, onFinish }) {
+function ActiveSession({ plan, onFinish, onSaveHistory }) {
   const { beep, finalBeep } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
   const [queue, setQueue] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -213,6 +213,14 @@ function ActiveSession({ plan, onFinish }) {
     }
     return () => clearInterval(elapsedRef.current);
   }, [isRunning]);
+
+  // Save history when workout finishes
+  useEffect(() => {
+    if (finished && onSaveHistory) {
+      const exercisesTotal = queue.filter(q => q.type === "exercise").length;
+      onSaveHistory(exercisesTotal, exercisesTotal, totalElapsed);
+    }
+  }, [finished]);
 
   const adjustTime = (delta) => {
     setRemaining((r) => Math.max(1, r + delta));
@@ -464,6 +472,7 @@ export default function WorkoutApp() {
   useEffect(() => {
     loadWorkouts();
     loadSettings();
+    loadHistory();
   }, []);
 
   const loadWorkouts = async () => {
@@ -519,6 +528,36 @@ export default function WorkoutApp() {
                   console.log('Settings save failed:', err.message);
           }
     };
+
+  const loadHistory = async () => {
+    try {
+      const { supabase } = await import('./supabase.js');
+      const { data, error } = await supabase
+        .from('workout_history')
+        .select('*')
+        .order('completed_at', { ascending: false });
+      if (error) throw error;
+      setHistory(data || []);
+    } catch (err) {
+      console.log('History load failed:', err.message);
+    }
+  };
+
+  const saveHistory = async (exercisesCompleted, exercisesTotal, durationSeconds) => {
+    try {
+      const { supabase } = await import('./supabase.js');
+      await supabase.from('workout_history').insert({
+        workout_id: activeWorkout ? activeWorkout.id : null,
+        workout_name: activeWorkout ? activeWorkout.name : 'Onbekend',
+        exercises_completed: exercisesCompleted,
+        exercises_total: exercisesTotal,
+        duration_seconds: durationSeconds,
+      });
+      await loadHistory();
+    } catch (err) {
+      console.log('History save failed:', err.message);
+    }
+  };
 
   const saveToSupabase = async (workout, isUpdate = false) => {
     setSaving(true);
@@ -616,7 +655,8 @@ export default function WorkoutApp() {
     setEditingWorkout(null);
   };
 
-  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);
+  const [history, setHistory] = useState([]);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
   const deleteWorkout = (idx) => {
     if (confirmDeleteIdx === idx) {
       const w = workouts[idx];
@@ -646,6 +686,7 @@ export default function WorkoutApp() {
       <ActiveSession
         plan={activeWorkout}
         onFinish={() => { setScreen("home"); setActiveWorkout(null); }}
+        onSaveHistory={saveHistory}
       />
     );
   }
@@ -661,6 +702,7 @@ export default function WorkoutApp() {
                           <h1 style={s.logo}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             {saving && <span style={{ fontSize: 12, color: "#4ECDC4", fontWeight: 600 }}>Opslaan...</span>}
+                                            <button onClick={() => setScreen("history")} style={s.newWorkoutBtn}>📋</button>
                                             <button onClick={() => setScreen("settings")} style={s.newWorkoutBtn}>⚙</button>
               <button onClick={createNewWorkout} style={s.newWorkoutBtn}>+</button>
                                     </div>
@@ -824,6 +866,56 @@ export default function WorkoutApp() {
           </div>
         </div>
       )}
+
+    {/* ── HISTORY ── */}
+    {screen === "history" && (
+      <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
+        <div style={s.editTopBar}>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Terug</button>
+          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Geschiedenis</h2>
+          <div style={{ width: 60 }} />
+        </div>
+        <div style={{ padding: "0 20px" }}>
+          {history.length === 0 ? (
+            <div style={s.emptyState}>
+              <span style={{ fontSize: 48, marginBottom: 12 }}>📋</span>
+              <p style={{ color: "#555", fontSize: 14 }}>Nog geen workouts voltooid.</p>
+            </div>
+          ) : (
+            history.map((item, i) => {
+              const pct = item.exercises_total > 0
+                ? Math.round((item.exercises_completed / item.exercises_total) * 100)
+                : 100;
+              const date = new Date(item.completed_at);
+              const dateStr = date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+              const timeStr = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+              return (
+                <div key={item.id} style={{ ...s.workoutCard, animation: "slideUp 0.3s ease forwards", animationDelay: `${i * 0.05}s`, opacity: 0, animationFillMode: "forwards" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={s.workoutCardName}>{item.workout_name}</h3>
+                      <p style={s.workoutCardMeta}>{dateStr} · {timeStr}</p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: pct === 100 ? "#4ECDC4" : "#F7DC6F" }}>
+                        {pct}%
+                      </span>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>voltooid</p>
+                    </div>
+                  </div>
+                  {item.duration_seconds > 0 && (
+                    <p style={{ fontSize: 12, color: "#555", marginTop: 6 }}>
+                      ⏱ {formatTime(item.duration_seconds)}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div style={{ height: 40 }} />
+      </div>
+    )}
 
     {/* ── SETTINGS ── */}
     {screen === "settings" && (
