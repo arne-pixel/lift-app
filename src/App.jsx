@@ -873,9 +873,9 @@ const lightOverrides = {
   skipBtn: { border: "1px solid #d0d0d8", color: "#888" },
   newWorkoutBtn: { color: "#555" },
   phasePill: { background: "#ffffff", border: "1px solid #e0e0e5" },
+  stopBtn: { background: "#e8e8ec", border: "1px solid #FF6B6B40" },
   activeExName: { color: "#1a1a2e" },
 };
-
 const _darkS = {
   container: {
     width: "100%", maxWidth: 393,
