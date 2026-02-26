@@ -159,7 +159,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
       });
     };
     addPhase(plan.warmup, "Warm-up", 0);
-    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rust", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
+    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
     addPhase(plan.cooldown, "Cool Down", 0);
     setQueue(q);
     if (q.length > 0) {
@@ -342,7 +342,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
         {isRest ? (
           <>
             <p style={{ color: "#555", fontSize: 13, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>
-              Rust
+              Rest
             </p>
             <div style={s.bigTimerWrap}>
               <svg width="220" height="220" viewBox="0 0 220 220">
@@ -620,6 +620,7 @@ export default function WorkoutApp() {
       loadWorkouts();
       loadSettings();
       loadHistory();
+        loadNotes();
     }
   }, [user ? user.id : null]);
 
@@ -700,6 +701,54 @@ export default function WorkoutApp() {
       setHistory(data || []);
     } catch (err) {
       console.log('History load failed:', err.message);
+    }
+  };
+
+  const loadNotes = async () => {
+    try {
+      const { supabase } = await import('./supabase.js');
+      const uid = window.__userId;
+      if (!uid) return;
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', uid)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      setNotes(data || []);
+    } catch (err) {
+      console.log('Notes load failed:', err.message);
+    }
+  };
+
+  const saveNote = async (note) => {
+    try {
+      const { supabase } = await import('./supabase.js');
+      const uid = window.__userId;
+      if (!uid) return;
+      if (note.id) {
+        const { error } = await supabase.from('notes').update({ title: note.title, content: note.content, updated_at: new Date().toISOString() }).eq('id', note.id).eq('user_id', uid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('notes').insert({ user_id: uid, title: note.title, content: note.content });
+        if (error) throw error;
+      }
+      await loadNotes();
+    } catch (err) {
+      console.log('Note save failed:', err.message);
+    }
+  };
+
+  const deleteNote = async (id) => {
+    try {
+      const { supabase } = await import('./supabase.js');
+      const uid = window.__userId;
+      if (!uid) return;
+      const { error } = await supabase.from('notes').delete().eq('id', id).eq('user_id', uid);
+      if (error) throw error;
+      await loadNotes();
+    } catch (err) {
+      console.log('Note delete failed:', err.message);
     }
   };
 
@@ -818,7 +867,9 @@ export default function WorkoutApp() {
   };
 
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);
-  const [history, setHistory] = useState([]);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
+  const [history, setHistory] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [editingNote, setEditingNote] = useState(null);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
   const deleteWorkout = (idx) => {
     if (confirmDeleteIdx === idx) {
       const w = workouts[idx];
@@ -906,7 +957,10 @@ export default function WorkoutApp() {
 
 
           <div style={{ padding: "0 20px" }}>
-            <h2 style={s.sectionTitle}>Mijn workouts</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ ...s.sectionTitle, marginBottom: 0 }}>My workouts</h2>
+              <button onClick={() => setScreen("notes")} style={{ background: "none", border: "none", color: "#888", fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: 0.5, padding: "4px 8px", fontFamily: "'DM Sans', sans-serif" }}>Notes</button>
+            </div>
             {loading ? (
               <div style={s.emptyState}>
                 <p style={{ color: "#555", fontSize: 14 }}>Workouts laden...</p>
@@ -1104,6 +1158,62 @@ export default function WorkoutApp() {
           )}
         </div>
         <div style={{ height: 40 }} />
+      </div>
+    )}
+
+    {/* ── NOTES ── */}
+    {screen === "notes" && !editingNote && (
+      <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
+        <div style={s.editTopBar}>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
+          <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Notes</h2>
+          <button onClick={() => setEditingNote({ id: null, title: "", content: "" })} style={{ ...s.newWorkoutBtn, fontSize: 22, lineHeight: 1 }}>+</button>
+        </div>
+        <div style={{ padding: "0 20px" }}>
+          {notes.length === 0 ? (
+            <div style={s.emptyState}>
+              <span style={{ fontSize: 48, marginBottom: 12 }}>📝</span>
+              <p style={{ color: "#555", fontSize: 14 }}>No notes yet. Tap + to create one.</p>
+            </div>
+          ) : (
+            notes.map((note) => (
+              <div key={note.id} style={{ ...s.workoutCard, cursor: "pointer" }} onClick={() => setEditingNote(note)}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ ...s.workoutCardName, marginBottom: 4 }}>{note.title || "Untitled"}</h3>
+                    <p style={{ ...s.workoutCardMeta, whiteSpace: "pre-wrap", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{note.content}</p>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 18, cursor: "pointer", padding: "0 0 0 12px", flexShrink: 0 }}>✕</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div style={{ height: 40 }} />
+      </div>
+    )}
+
+    {screen === "notes" && editingNote && (
+      <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <div style={s.editTopBar}>
+          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>← Notes</button>
+          <div style={{ width: 60 }} />
+          <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save ✓</button>
+        </div>
+        <div style={{ padding: "0 20px", flex: 1, display: "flex", flexDirection: "column" }}>
+          <input
+            value={editingNote.title}
+            onChange={e => setEditingNote({ ...editingNote, title: e.target.value })}
+            placeholder="Title"
+            style={{ width: "100%", background: "none", border: "none", borderBottom: _currentTheme === 'light' ? "1px solid #d0d0d8" : "1px solid #1a1a35", color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 22, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", padding: "12px 0", marginBottom: 16, outline: "none", boxSizing: "border-box" }}
+          />
+          <textarea
+            value={editingNote.content}
+            onChange={e => setEditingNote({ ...editingNote, content: e.target.value })}
+            placeholder="Write your note here..."
+            style={{ flex: 1, width: "100%", background: "none", border: "none", color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 15, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6, padding: 0, outline: "none", resize: "none", minHeight: "60vh", boxSizing: "border-box" }}
+          />
+        </div>
       </div>
     )}
 
