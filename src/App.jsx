@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ââ Audio beep using Web Audio API ââ
+// -- Audio beep using Web Audio API --
 function useBeep(beepType, finalBeepType) {
   const ctxRef = useRef(null);
   const getCtx = () => {
@@ -19,7 +19,7 @@ function useBeep(beepType, finalBeepType) {
       const p = BP[beepType] || BP.classic;
       if (beepType === 'double') { playTone(ctx,p[0],p[1],p[2],p[3],0); playTone(ctx,p[0],p[1],p[2],p[3],0.12); }
       else { playTone(ctx,p[0],p[1],p[2],p[3]); }
-    } catch (e) {}
+    } catch (e) { console.warn("beep error:", e); }
   }, [beepType]);
   const finalBeep = useCallback(() => {
     try {
@@ -27,12 +27,12 @@ function useBeep(beepType, finalBeepType) {
       const p = FP[finalBeepType] || FP.classic;
       if (finalBeepType === 'triple') { [0,0.15,0.3].forEach(d => playTone(ctx,p[0],p[1],p[2],p[3],d)); }
       else { playTone(ctx,p[0],p[1],p[2],p[3]); }
-    } catch (e) {}
+    } catch (e) { console.warn("finalBeep error:", e); }
   }, [finalBeepType]);
   return { beep, finalBeep, getCtx };
 }
 
-// ââ Helper ââ
+// -- Helper --
 function formatTime(s) {
   const m = Math.floor(s / 60);
   const sec = s % 60;
@@ -41,7 +41,7 @@ function formatTime(s) {
 
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180];
 
-// ââ Phase Editor (used for warm-up, workout exercises, cool-down) ââ
+// -- Phase Editor (used for warm-up, workout exercises, cool-down) --
 function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRestTime, sets, setSets, color, collapsible, collapsed, onToggleCollapse, sectionDuration, skipped, onSkip }) {
   const addExercise = () => {
     setExercises([...exercises, { name: "", duration: 60 }]);
@@ -96,9 +96,9 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
             <button onClick={() => update(i, "duration", ex.duration + 10)} style={s.smallBtn}>+10</button>
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-            <button onClick={() => move(i, -1)} style={s.iconBtn} disabled={i === 0}>↑</button>
-            <button onClick={() => move(i, 1)} style={s.iconBtn} disabled={i === exercises.length - 1}>↓</button>
-            <button onClick={() => remove(i)} style={{ ...s.iconBtn, color: "#FF6B6B" }}>×</button>
+            <button onClick={() => move(i, -1)} style={s.iconBtn} disabled={i === 0}>^</button>
+            <button onClick={() => move(i, 1)} style={s.iconBtn} disabled={i === exercises.length - 1}>v</button>
+            <button onClick={() => remove(i)} style={{ ...s.iconBtn, color: "#FF6B6B" }}>x</button>
           </div>
         </div>
       ))}
@@ -133,7 +133,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
   );
 }
 
-// ââ Active Timer Screen ââ
+// -- Active Timer Screen --
 function ActiveSession({ plan, onFinish, onSaveHistory }) {
   const { beep, finalBeep, getCtx } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
   const [queue, setQueue] = useState([]);
@@ -149,7 +149,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   useEffect(() => {
     const q = [];
     const addPhase = (exercises, phase, restTime) => {
-      const valid = exercises.filter(e => e.name.trim());
+      const valid = exercises.filter(e => e.name.trim() && e.duration > 0);
       valid.forEach((ex, i) => {
         q.push({ type: "exercise", name: ex.name, duration: ex.duration, phase });
         if (restTime && i < valid.length - 1) {
@@ -165,7 +165,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
       });
     };
     if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
-    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout · Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
+    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout - Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
     if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
     setQueue(q);
     if (q.length > 0) {
@@ -377,7 +377,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
                 </span>
               </div>
             </div>
-            <h1 style={{ ...s.activeExName, marginTop: 24, marginBottom: 0 }}>{current.nextName || "–"}</h1>
+            <h1 style={{ ...s.activeExName, marginTop: 24, marginBottom: 0 }}>{current.nextName || "-"}</h1>
           </>
         ) : (
           <>
@@ -481,7 +481,7 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 0; }
 `;
 
-// ââ Login Screen ââ
+// -- Login Screen --
 function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -566,7 +566,7 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-// ââ Main App ââ
+// -- Main App --
 export default function WorkoutApp() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -584,7 +584,7 @@ export default function WorkoutApp() {
   const [beepType, setBeepType] = useState(() => localStorage.getItem('beepType') || 'classic');
   const [finalBeepType, setFinalBeepType] = useState(() => localStorage.getItem('finalBeepType') || 'classic');
 
-  // ââ Supabase helpers ââ
+  // -- Supabase helpers --
   const getSupabase = () => {
     try {
       // Dynamic import won't work in artifact preview, so we check if it's available
@@ -650,6 +650,7 @@ export default function WorkoutApp() {
         workout: row.workout || [],
         cooldown: row.cooldown || [],
         restTime: row.rest_time || 60, sets: row.sets || parseInt(localStorage.getItem('sets_' + row.id)) || 1,
+        skipWarmup: row.skip_warmup || false, skipCooldown: row.skip_cooldown || false,
       }));
       setWorkouts(mapped);
     } catch (err) {
@@ -787,6 +788,8 @@ export default function WorkoutApp() {
         workout: workout.workout,
         cooldown: workout.cooldown,
         rest_time: workout.restTime, sets: workout.sets || 1,
+        skip_warmup: workout.skipWarmup || false,
+        skip_cooldown: workout.skipCooldown || false,
         updated_at: new Date().toISOString(),
       };
       if (isUpdate && workout.id) {
@@ -947,7 +950,7 @@ export default function WorkoutApp() {
     <div style={s.container}>
       <style>{globalCSS}</style>
 
-      {/* ââ HOME ââ */}
+      {/* -- HOME -- */}
       {screen === "home" && (
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={{ ...s.header, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -998,17 +1001,17 @@ export default function WorkoutApp() {
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, marginBottom: 14 }}>
                     {w.warmup.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#F7DC6F18", color: "#F7DC6F" }}>
-                        Warm-up · {w.warmup.filter((e) => e.name.trim()).length}
+                        Warm-up - {w.warmup.filter((e) => e.name.trim()).length}
                       </span>
                     )}
                     {w.workout.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#FF6B6B18", color: "#FF6B6B" }}>
-                        Workout · {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` · ${w.sets}x` : ''}
+                        Workout - {w.workout.filter((e) => e.name.trim()).length}{(w.sets || 1) > 1 ? ` - ${w.sets}x` : ''}
                       </span>
                     )}
                     {w.cooldown.filter((e) => e.name.trim()).length > 0 && (
                       <span style={{ ...s.phaseChip, background: "#4ECDC418", color: "#4ECDC4" }}>
-                        Cool Down · {w.cooldown.filter((e) => e.name.trim()).length}
+                        Cool Down - {w.cooldown.filter((e) => e.name.trim()).length}
                       </span>
                     )}
                   </div>
@@ -1020,7 +1023,7 @@ export default function WorkoutApp() {
                       Edit
                     </button>
                     <button onClick={() => deleteWorkout(i)} style={{ ...s.deleteBtn, color: confirmDeleteIdx === i ? "#FF6B6B" : "#FF6B6B50", borderColor: confirmDeleteIdx === i ? "#FF6B6B" : "#222240" }}>
-                      {confirmDeleteIdx === i ? "Sure?" : "×"}
+                      {confirmDeleteIdx === i ? "Sure?" : "x"}
                     </button>
                   </div>
                 </div>
@@ -1031,12 +1034,12 @@ export default function WorkoutApp() {
         </div>
       )}
 
-      {/* ââ EDIT WORKOUT ââ */}
+      {/* -- EDIT WORKOUT -- */}
       {screen === "edit" && editingWorkout && (
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={s.editTopBar}>
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
-              ← Back
+              <- Back
             </button>
             <button onClick={handleSave} style={s.saveBtn}>
               Save
@@ -1126,11 +1129,11 @@ export default function WorkoutApp() {
         </div>
       )}
 
-    {/* ââ HISTORY ââ */}
+    {/* -- HISTORY -- */}
     {screen === "history" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>History</h2>
           <div style={{ width: 60 }} />
         </div>
@@ -1153,7 +1156,7 @@ export default function WorkoutApp() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
                       <h3 style={s.workoutCardName}>{item.workout_name}</h3>
-                      <p style={s.workoutCardMeta}>{dateStr} · {timeStr}</p>
+                      <p style={s.workoutCardMeta}>{dateStr} - {timeStr}</p>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: pct === 100 ? "#4ECDC4" : "#F7DC6F" }}>
@@ -1176,11 +1179,11 @@ export default function WorkoutApp() {
       </div>
     )}
 
-    {/* ââ NOTES ââ */}
+    {/* -- NOTES -- */}
     {screen === "notes" && !editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Notes</h2>
           <button onClick={() => setEditingNote({ id: null, title: "", content: "" })} style={{ ...s.newWorkoutBtn, fontSize: 22, lineHeight: 1 }}>+</button>
         </div>
@@ -1198,7 +1201,7 @@ export default function WorkoutApp() {
                     <h3 style={{ ...s.workoutCardName, marginBottom: 4 }}>{note.title || "Untitled"}</h3>
                     <p style={{ ...s.workoutCardMeta, whiteSpace: "pre-wrap", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{note.content}</p>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 18, cursor: "pointer", padding: "0 0 0 12px", flexShrink: 0 }}>×</button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: 18, cursor: "pointer", padding: "0 0 0 12px", flexShrink: 0 }}>x</button>
                 </div>
               </div>
             ))
@@ -1211,7 +1214,7 @@ export default function WorkoutApp() {
     {screen === "notes" && editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>← Notes</button>
+          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}><- Notes</button>
           <div style={{ width: 60 }} />
           <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
         </div>
@@ -1232,11 +1235,11 @@ export default function WorkoutApp() {
       </div>
     )}
 
-    {/* ââ SETTINGS ââ */}
+    {/* -- SETTINGS -- */}
     {screen === "settings" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}>← Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Settings</h2>
           <div style={{ width: 60 }} />
         </div>
@@ -1291,7 +1294,7 @@ export default function WorkoutApp() {
   );
 }
 
-// ââ Styles ââ
+// -- Styles --
 const lightOverrides = {
   container: { background: "#f5f5f7", color: "#1a1a2e", touchAction: "manipulation" },
   logo: { color: "#1a1a2e" },
