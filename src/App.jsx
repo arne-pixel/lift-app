@@ -7,6 +7,7 @@ function useBeep(beepType, finalBeepType) {
     if (!ctxRef.current) {
       ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
+    if (ctxRef.current.state === 'suspended') ctxRef.current.resume();
     return ctxRef.current;
   };
   const BP = { classic:[880,"square",0.3,0.15], soft:[660,"sine",0.2,0.2], sharp:[1200,"sawtooth",0.25,0.1], low:[440,"triangle",0.35,0.2], double:[988,"square",0.25,0.08] };
@@ -419,7 +420,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
           <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
+            <button onClick={() => { getCtx(); setIsRunning(true); }} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
           ) : (
             <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
           )}
@@ -870,6 +871,7 @@ export default function WorkoutApp() {
   };
 
   const handleSaveAndStart = async () => {
+    getCtx();
     const w = await saveWorkout();
     setActiveWorkout(w);
     setScreen("active");
