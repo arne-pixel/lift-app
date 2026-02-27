@@ -7,7 +7,6 @@ function useBeep(beepType, finalBeepType) {
     if (!ctxRef.current) {
       ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (ctxRef.current.state === "suspended") ctxRef.current.resume();
     return ctxRef.current;
   };
   const BP = { classic:[880,"square",0.3,0.15], soft:[660,"sine",0.2,0.2], sharp:[1200,"sawtooth",0.25,0.1], low:[440,"triangle",0.35,0.2], double:[988,"square",0.25,0.08] };
@@ -420,9 +419,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
           <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={s.playBtn}><svg width="14" height="16" viewBox="0 0 12 14" fill="currentColor"><polygon points="0,0 12,7 0,14"/></svg></button>
+            <button onClick={() => setIsRunning(true)} style={s.playBtn}><svg width="13" height="15" viewBox="0 0 13 15" fill="currentColor"><path d="M2 1.5 L11.5 7.5 L2 13.5 Z"/></svg></button>
           ) : (
-            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}>⏸</button>
+            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}><svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><rect x="1" y="1" width="4" height="14" rx="1"/><rect x="9" y="1" width="4" height="14" rx="1"/></svg></button>
           )}
           <button onClick={() => adjustTime(5)} style={s.adjustBtn}>+5s</button>
           <button onClick={() => adjustTime(10)} style={s.adjustBtn}>+10s</button>
@@ -1293,7 +1292,7 @@ export default function WorkoutApp() {
 
 // ââ Styles ââ
 const lightOverrides = {
-  container: { background: "#f5f5f7", color: "#1a1a2e" },
+  container: { background: "#f5f5f7", color: "#1a1a2e", touchAction: "manipulation" },
   logo: { color: "#1a1a2e" },
   workoutCard: { background: "#ffffff", border: "1px solid #e0e0e5" },
   workoutCardName: { color: "#1a1a2e" },
