@@ -419,9 +419,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
           <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white"><polygon points="7,4 18,11 7,18"/></svg></button>
+            <button onClick={() => setIsRunning(true)} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
           ) : (
-            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white"><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
+            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
           )}
           <button onClick={() => adjustTime(5)} style={s.adjustBtn}>+5s</button>
           <button onClick={() => adjustTime(10)} style={s.adjustBtn}>+10s</button>
