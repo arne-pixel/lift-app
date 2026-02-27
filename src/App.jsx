@@ -29,7 +29,7 @@ function useBeep(beepType, finalBeepType) {
       else { playTone(ctx,p[0],p[1],p[2],p[3]); }
     } catch (e) {}
   }, [finalBeepType]);
-  return { beep, finalBeep };
+  return { beep, finalBeep, getCtx };
 }
 
 // ââ Helper ââ
@@ -135,7 +135,7 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
 
 // ââ Active Timer Screen ââ
 function ActiveSession({ plan, onFinish, onSaveHistory }) {
-  const { beep, finalBeep } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
+  const { beep, finalBeep, getCtx } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
   const [queue, setQueue] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [remaining, setRemaining] = useState(0);
@@ -871,7 +871,6 @@ export default function WorkoutApp() {
   };
 
   const handleSaveAndStart = async () => {
-    getCtx();
     const w = await saveWorkout();
     setActiveWorkout(w);
     setScreen("active");
