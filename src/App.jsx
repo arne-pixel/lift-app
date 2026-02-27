@@ -7,6 +7,7 @@ function useBeep(beepType, finalBeepType) {
     if (!ctxRef.current) {
       ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
+    if (ctxRef.current.state === "suspended") ctxRef.current.resume();
     return ctxRef.current;
   };
   const BP = { classic:[880,"square",0.3,0.15], soft:[660,"sine",0.2,0.2], sharp:[1200,"sawtooth",0.25,0.1], low:[440,"triangle",0.35,0.2], double:[988,"square",0.25,0.08] };
