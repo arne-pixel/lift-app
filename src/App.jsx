@@ -593,6 +593,22 @@ export default function WorkoutApp() {
     } catch { return null; }
   };
 
+  // Drop everything that belongs to the previous user
+  const resetUserState = () => {
+    setWorkouts([]);
+    setHistory([]);
+    setNotes([]);
+    setEditingNote(null);
+    setEditingWorkout(null);
+    setEditingIdx(null);
+    setActiveWorkout(null);
+    setConfirmDeleteIdx(null);
+    setDbError(null);
+    setScreen("home");
+    localStorage.removeItem('lastCompletedId');
+    setLastCompletedId(null);
+  };
+
   // Initialize auth and load data
   useEffect(() => {
     const initAuth = async () => {
@@ -605,6 +621,8 @@ export default function WorkoutApp() {
           window.__userId = session.user.id;
         }
         supabase.auth.onAuthStateChange((event, session) => {
+          const nextId = session?.user?.id ?? null;
+          if ((window.__userId ?? null) !== nextId) resetUserState();
           if (session?.user) {
             setUser(session.user);
             window.__userId = session.user.id;
@@ -631,18 +649,19 @@ export default function WorkoutApp() {
   }, [user ? user.id : null]);
 
   const loadWorkouts = async () => {
+    const uid = window.__userId;
     setLoading(true);
     setDbError(null);
     try {
       const { supabase } = await import('./supabase.js');
       window.__supabase = supabase;
-      const uid = window.__userId;
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
       if (error) throw error;
+      if (window.__userId !== uid) return;
       const mapped = data.map(row => ({
         id: row.id,
         name: row.name,
@@ -654,6 +673,7 @@ export default function WorkoutApp() {
       }));
       setWorkouts(mapped);
     } catch (err) {
+      if (window.__userId !== uid) return;
       console.log('Supabase not available, using local state:', err.message);
       setDbError('Kon geen verbinding maken met de database. Workouts konden niet worden geladen.');
     }
@@ -673,6 +693,7 @@ export default function WorkoutApp() {
         error = result.error;
       }
                   if (error) throw error;
+                  if (window.__userId !== uid) return;
                   if (data) {
                             setTheme(data.theme || 'dark');
                             setBeepType(data.beep_type || 'classic');
@@ -708,6 +729,7 @@ export default function WorkoutApp() {
         .eq('user_id', uid)
         .order('completed_at', { ascending: false });
       if (error) throw error;
+      if (window.__userId !== uid) return;
       setHistory(data || []);
     } catch (err) {
       console.log('History load failed:', err.message);
@@ -725,6 +747,7 @@ export default function WorkoutApp() {
         .eq('user_id', uid)
         .order('updated_at', { ascending: false });
       if (error) throw error;
+      if (window.__userId !== uid) return;
       setNotes(data || []);
     } catch (err) {
       console.log('Notes load failed:', err.message);
@@ -935,9 +958,8 @@ export default function WorkoutApp() {
       const { supabase } = await import('./supabase.js');
       await supabase.auth.signOut();
       setUser(null);
-      setWorkouts([]);
-      setHistory([]);
-      setScreen("home");
+      window.__userId = null;
+      resetUserState();
     } catch (err) {
       console.log('Logout failed:', err.message);
     }
@@ -955,7 +977,7 @@ export default function WorkoutApp() {
   }
 
   if (!user) {
-    return <LoginScreen onLogin={(u) => { setUser(u); window.__userId = u.id; }} />;
+    return <LoginScreen onLogin={(u) => { if ((window.__userId ?? null) !== u.id) resetUserState(); setUser(u); window.__userId = u.id; }} />;
   }
 
   const errorBanner = dbError && (
