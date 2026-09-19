@@ -142,8 +142,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   const [isRunning, setIsRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [totalElapsed, setTotalElapsed] = useState(0);
-  const intervalRef = useRef(null);
-  const elapsedRef = useRef(null);
+  const endAtRef = useRef(0); // wall-clock ms at which the current item ends (valid while running)
+  const runStartRef = useRef(0); // wall-clock ms at which the current run (since last play) started
+  const elapsedBaseRef = useRef(0); // ms elapsed in earlier runs, before the last pause
   const lastBeepRef = useRef(null);
 
   useEffect(() => {
@@ -173,51 +174,59 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
     }
   }, [plan]);
 
-  const advanceToNext = useCallback(() => {
-    clearInterval(intervalRef.current);
-    setCurrentIdx(prev => {
-      const nextIdx = prev + 1;
-      if (nextIdx < queue.length) {
-        setRemaining(queue[nextIdx].duration);
-        lastBeepRef.current = null;
-        return nextIdx;
-      } else {
-        setIsRunning(false);
-        setFinished(true);
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-        return prev;
-      }
-    });
+  const goTo = useCallback((idx) => {
+    setCurrentIdx(idx);
+    setRemaining(queue[idx].duration);
+    endAtRef.current = Date.now() + queue[idx].duration * 1000;
+    lastBeepRef.current = null;
   }, [queue]);
 
-  // Main timer
-  useEffect(() => {
-    if (isRunning && remaining > 0) {
-      intervalRef.current = setInterval(() => {
-        setRemaining((r) => {
-          const next = r - 1;
-          if (next > 0 && next <= 3 && lastBeepRef.current !== next) {
-            lastBeepRef.current = next;
-            beep();
-          }
-          if (next === 0) {
-            finalBeep();
-            setTimeout(() => advanceToNext(), 500);
-          }
-          return Math.max(0, next);
-        });
-      }, 1000);
+  const advanceToNext = useCallback(() => {
+    const nextIdx = currentIdx + 1;
+    if (nextIdx < queue.length) {
+      goTo(nextIdx);
+    } else {
+      setIsRunning(false);
+      setFinished(true);
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
     }
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning, remaining, currentIdx, advanceToNext, beep, finalBeep]);
+  }, [queue, currentIdx, goTo]);
 
-  // Total elapsed counter
+  // Main timer + total elapsed: derived from the wall clock, so throttled or
+  // suspended timers (background tab, locked phone) don't stall the countdown
   useEffect(() => {
-    if (isRunning) {
-      elapsedRef.current = setInterval(() => setTotalElapsed((t) => t + 1), 1000);
-    }
-    return () => clearInterval(elapsedRef.current);
+    if (!isRunning) return;
+    runStartRef.current = Date.now();
+    const tick = () => {
+      const now = Date.now();
+      setRemaining(Math.max(0, Math.ceil((endAtRef.current - now) / 1000)));
+      setTotalElapsed(Math.floor((elapsedBaseRef.current + now - runStartRef.current) / 1000));
+    };
+    const id = setInterval(tick, 250);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+      elapsedBaseRef.current += Date.now() - runStartRef.current;
+    };
   }, [isRunning]);
+
+  // Countdown beeps and auto-advance
+  useEffect(() => {
+    if (!isRunning) return;
+    if (remaining > 0 && remaining <= 3 && lastBeepRef.current !== remaining) {
+      lastBeepRef.current = remaining;
+      beep();
+    }
+    if (remaining === 0) {
+      if (lastBeepRef.current !== 0) {
+        lastBeepRef.current = 0;
+        finalBeep();
+      }
+      const t = setTimeout(advanceToNext, 500);
+      return () => clearTimeout(t);
+    }
+  }, [isRunning, remaining, advanceToNext, beep, finalBeep]);
 
   // Save history when workout finishes
   useEffect(() => {
@@ -228,7 +237,13 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   }, [finished]);
 
   const adjustTime = (delta) => {
-    setRemaining((r) => Math.max(1, r + delta));
+    if (isRunning) {
+      endAtRef.current = Math.max(Date.now() + 1000, endAtRef.current + delta * 1000);
+      setRemaining(Math.ceil((endAtRef.current - Date.now()) / 1000));
+    } else {
+      setRemaining((r) => Math.max(1, r + delta));
+    }
+    if (lastBeepRef.current === 0) lastBeepRef.current = null; // time was added after the final beep
     setQueue((q) => {
       const copy = [...q];
       if (copy[currentIdx]) {
@@ -239,29 +254,20 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   };
 
   const skipCurrent = () => {
-    clearInterval(intervalRef.current);
     advanceToNext();
   };
 
   const goToPrevious = () => {
     if (currentIdx <= 0) return;
-    clearInterval(intervalRef.current);
-    const prevIdx = currentIdx - 1;
-    setCurrentIdx(prevIdx);
-    setRemaining(queue[prevIdx].duration);
-    lastBeepRef.current = null;
+    goTo(currentIdx - 1);
   };
 
   const handleStop = () => {
-    clearInterval(intervalRef.current);
-    clearInterval(elapsedRef.current);
     setIsRunning(false);
     onFinish();
   };
 
   const handleFinish = () => {
-    clearInterval(intervalRef.current);
-    clearInterval(elapsedRef.current);
     setIsRunning(false);
     const exercisesCompleted = queue.slice(0, currentIdx + 1).filter(q => q.type === "exercise").length;
     const exercisesTotal = queue.filter(q => q.type === "exercise").length;
@@ -420,9 +426,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
           <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => { getCtx(); setIsRunning(true); }} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
+            <button onClick={() => { getCtx(); endAtRef.current = Date.now() + remaining * 1000; setIsRunning(true); }} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
           ) : (
-            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
+            <button onClick={() => setIsRunning(false)} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
           )}
           <button onClick={() => adjustTime(5)} style={s.adjustBtn}>+5s</button>
           <button onClick={() => adjustTime(10)} style={s.adjustBtn}>+10s</button>
@@ -441,7 +447,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <span
             onClick={() => {
               const firstNonWarmup = queue.findIndex(item => item.phase !== "Warm-up");
-              if (firstNonWarmup !== -1) { setCurrentIdx(firstNonWarmup); setRemaining(queue[firstNonWarmup].duration); }
+              if (firstNonWarmup !== -1) goTo(firstNonWarmup);
             }}
             style={{ display: "block", textAlign: "center", marginTop: 16, color: "#555", fontSize: 12, cursor: "pointer", letterSpacing: 1 }}
           >
