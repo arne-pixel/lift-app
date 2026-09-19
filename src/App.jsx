@@ -577,6 +577,7 @@ export default function WorkoutApp() {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [warmupCollapsed, setWarmupCollapsed] = useState(true);
   const [cooldownCollapsed, setCooldownCollapsed] = useState(true);
   const [dbError, setDbError] = useState(null);
@@ -893,6 +894,8 @@ export default function WorkoutApp() {
   };
 
   const saveWorkout = async () => {
+    if (savingRef.current) return null;
+    savingRef.current = true;
     const isUpdate = editingIdx !== null;
     const w = {
       ...editingWorkout,
@@ -900,6 +903,7 @@ export default function WorkoutApp() {
       id: editingWorkout.id || undefined,
     };
     const saved = await saveToSupabase(w, isUpdate);
+    savingRef.current = false;
     if (!saved) return null;
     if (saved.id) localStorage.setItem('sets_' + saved.id, String(saved.sets || 1));
     if (isUpdate) {
@@ -915,6 +919,16 @@ export default function WorkoutApp() {
     if (!saved) return;
     setScreen("home");
     setEditingWorkout(null);
+  };
+
+  const handleSaveNote = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    const ok = await saveNote(editingNote);
+    savingRef.current = false;
+    setSaving(false);
+    if (ok) setEditingNote(null);
   };
 
   const handleSaveAndStart = async () => {
@@ -1087,7 +1101,7 @@ export default function WorkoutApp() {
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
               {"<-"} Back
             </button>
-            <button onClick={handleSave} style={s.saveBtn}>
+            <button onClick={handleSave} disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>
               Save
             </button>
           </div>
@@ -1165,7 +1179,8 @@ export default function WorkoutApp() {
               editingWorkout.cooldown.some((e) => e.name.trim())) && (
               <button
                 onClick={handleSaveAndStart}
-                style={{ ...s.startBtn, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
+                disabled={saving}
+                style={{ ...s.startBtn, opacity: saving ? 0.5 : 1, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
               >
                 <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor" style={{display:"inline-block",verticalAlign:"middle",marginRight:6}}><polygon points="0,0 12,7 0,14"/></svg>Save & Start
               </button>
@@ -1264,7 +1279,7 @@ export default function WorkoutApp() {
         <div style={s.editTopBar}>
           <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>{"<-"} Notes</button>
           <div style={{ width: 60 }} />
-          <button onClick={async () => { const ok = await saveNote(editingNote); if (ok) setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
+          <button onClick={handleSaveNote} disabled={saving} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10, opacity: saving ? 0.5 : 1 }}>Save</button>
         </div>
         {errorBanner}
         <div style={{ padding: "0 20px", flex: 1, display: "flex", flexDirection: "column" }}>
