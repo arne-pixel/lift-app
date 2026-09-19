@@ -3,6 +3,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // -- Audio beep using Web Audio API --
 function useBeep(beepType, finalBeepType) {
   const ctxRef = useRef(null);
+  useEffect(() => () => {
+    if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null; }
+  }, []);
   const getCtx = () => {
     if (!ctxRef.current) {
       ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -133,12 +136,47 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
   );
 }
 
+// -- Build the exercise/rest queue for a session --
+function buildQueue(plan) {
+  const q = [];
+  const isValid = (e) => e.name.trim() && e.duration > 0;
+  const addPhase = (exercises, phase, restTime) => {
+    const valid = exercises.filter(isValid);
+    valid.forEach((ex, i) => {
+      q.push({ type: "exercise", name: ex.name, duration: ex.duration, phase });
+      if (restTime && i < valid.length - 1) {
+        const nextEx = valid[i + 1];
+        q.push({
+          type: "rest",
+          name: "Rest",
+          duration: restTime,
+          phase,
+          nextName: nextEx ? nextEx.name : "",
+        });
+      }
+    });
+  };
+  if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
+  const sets = plan.sets || 1;
+  const validWorkout = plan.workout.filter(isValid);
+  if (validWorkout.length > 0) {
+    for (let si = 0; si < sets; si++) {
+      if (si > 0) {
+        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: validWorkout[0].name });
+      }
+      addPhase(plan.workout, sets > 1 ? "Workout - Set " + (si+1) + "/" + sets : "Workout", plan.restTime);
+    }
+  }
+  if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
+  return q;
+}
+
 // -- Active Timer Screen --
 function ActiveSession({ plan, onFinish, onSaveHistory }) {
   const { beep, finalBeep, getCtx } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
-  const [queue, setQueue] = useState([]);
+  const [queue, setQueue] = useState(() => buildQueue(plan));
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [remaining, setRemaining] = useState(0);
+  const [remaining, setRemaining] = useState(() => (queue.length > 0 ? queue[0].duration : 0));
   const [isRunning, setIsRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [totalElapsed, setTotalElapsed] = useState(0);
@@ -146,33 +184,6 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   const runStartRef = useRef(0); // wall-clock ms at which the current run (since last play) started
   const elapsedBaseRef = useRef(0); // ms elapsed in earlier runs, before the last pause
   const lastBeepRef = useRef(null);
-
-  useEffect(() => {
-    const q = [];
-    const addPhase = (exercises, phase, restTime) => {
-      const valid = exercises.filter(e => e.name.trim() && e.duration > 0);
-      valid.forEach((ex, i) => {
-        q.push({ type: "exercise", name: ex.name, duration: ex.duration, phase });
-        if (restTime && i < valid.length - 1) {
-          const nextEx = valid[i + 1];
-          q.push({
-            type: "rest",
-            name: "Rest",
-            duration: restTime,
-            phase,
-            nextName: nextEx ? nextEx.name : "",
-          });
-        }
-      });
-    };
-    if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
-    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout - Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
-    if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
-    setQueue(q);
-    if (q.length > 0) {
-      setRemaining(q[0].duration);
-    }
-  }, [plan]);
 
   const goTo = useCallback((idx) => {
     setCurrentIdx(idx);
@@ -618,16 +629,19 @@ export default function WorkoutApp() {
 
   // Initialize auth and load data
   useEffect(() => {
+    let cancelled = false;
+    let subscription = null;
     const initAuth = async () => {
       try {
         const { supabase } = await import('./supabase.js');
         window.__supabase = supabase;
         const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
         if (session?.user) {
           setUser(session.user);
           window.__userId = session.user.id;
         }
-        supabase.auth.onAuthStateChange((event, session) => {
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
           const nextId = session?.user?.id ?? null;
           if ((window.__userId ?? null) !== nextId) resetUserState();
           if (session?.user) {
@@ -638,12 +652,17 @@ export default function WorkoutApp() {
             window.__userId = null;
           }
         });
+        subscription = data.subscription;
       } catch (err) {
         console.log('Auth init failed:', err.message);
       }
-      setAuthLoading(false);
+      if (!cancelled) setAuthLoading(false);
     };
     initAuth();
+    return () => {
+      cancelled = true;
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -1343,7 +1362,7 @@ export default function WorkoutApp() {
             <p style={{ fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 12 }}>Countdown (last 3s)</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[{id:"classic",label:"Classic",desc:"Short square beep"},{id:"soft",label:"Soft",desc:"Soft sine tone"},{id:"sharp",label:"Sharp",desc:"Sharp sawtooth"},{id:"low",label:"Low",desc:"Low triangle tone"},{id:"double",label:"Double",desc:"Double quick beep"}].map(opt => (
-                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); saveSettings({ beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); saveSettings({ beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}setTimeout(()=>ctx.close().catch(()=>{}),1000);}catch(e){console.warn("beep preview error:",e);} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                   <span style={{ width:18,height:18,borderRadius:"50%",border:beepType===opt.id?"2px solid #4ECDC4":"2px solid #444",background:beepType===opt.id?"#4ECDC4":"none",flexShrink:0 }} />
                   <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                 </button>
@@ -1353,7 +1372,7 @@ export default function WorkoutApp() {
               <p style={{ fontSize:13,color:"#888",fontWeight:600,marginBottom:12 }}>Final</p>
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
                 {[{id:"classic",label:"Classic",desc:"Loud square tone"},{id:"gentle",label:"Gentle",desc:"Soft longer tone"},{id:"alarm",label:"Alarm",desc:"High sawtooth alert"},{id:"deep",label:"Deep",desc:"Deep bass tone"},{id:"triple",label:"Triple",desc:"Three quick beeps"}].map(opt => (
-                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); saveSettings({ final_beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); saveSettings({ final_beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}setTimeout(()=>ctx.close().catch(()=>{}),1000);}catch(e){console.warn("final beep preview error:",e);} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                     <span style={{ width:18,height:18,borderRadius:"50%",border:finalBeepType===opt.id?"2px solid #FF6B6B":"2px solid #444",background:finalBeepType===opt.id?"#FF6B6B":"none",flexShrink:0 }} />
                     <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                   </button>
