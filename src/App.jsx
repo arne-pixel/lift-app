@@ -502,8 +502,8 @@ function LoginScreen({ onLogin }) {
         result = await supabase.auth.signInWithPassword({ email, password });
       }
       if (result.error) throw result.error;
-      if (result.data?.user) {
-        onLogin(result.data.user);
+      if (result.data?.session?.user) {
+        onLogin(result.data.session.user);
       } else if (isRegister) {
         setError("Account aangemaakt! Probeer nu in te loggen.");
         setIsRegister(false);
