@@ -841,11 +841,14 @@ export default function WorkoutApp() {
         updated_at: new Date().toISOString(),
       };
       if (isUpdate && workout.id) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('workouts')
           .update(row)
-          .eq('id', workout.id);
+          .eq('id', workout.id)
+          .eq('user_id', String(window.__userId))
+          .select();
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Workout niet gevonden');
       } else {
         const { data, error } = await supabase
           .from('workouts')
@@ -868,8 +871,9 @@ export default function WorkoutApp() {
   const deleteFromSupabase = async (id) => {
     try {
       const { supabase } = await import('./supabase.js');
-      const { error } = await supabase.from('workouts').delete().eq('id', id);
+      const { data, error } = await supabase.from('workouts').delete().eq('id', id).eq('user_id', String(window.__userId)).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Workout niet gevonden');
       return true;
     } catch (err) {
       console.log('Delete failed:', err.message);
