@@ -691,11 +691,12 @@ export default function WorkoutApp() {
           try {
                   const { supabase } = await import('./supabase.js');
                   const uid = window.__userId;
-      let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
-      if (error && error.code === 'PGRST116') {
-        const { error: insertError } = await supabase.from('settings').insert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' });
-        if (insertError) throw insertError;
-        const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
+      let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).maybeSingle();
+      if (!error && !data) {
+        // First login: create defaults. ignoreDuplicates keeps a row that a concurrent load already created.
+        const { error: upsertError } = await supabase.from('settings').upsert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' }, { onConflict: 'auth_user_id', ignoreDuplicates: true });
+        if (upsertError) throw upsertError;
+        const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).maybeSingle();
         data = result.data;
         error = result.error;
       }
