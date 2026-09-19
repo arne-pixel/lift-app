@@ -1039,7 +1039,7 @@ export default function WorkoutApp() {
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={s.editTopBar}>
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
-              <- Back
+              {"<-"} Back
             </button>
             <button onClick={handleSave} style={s.saveBtn}>
               Save
@@ -1133,7 +1133,7 @@ export default function WorkoutApp() {
     {screen === "history" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>{"<-"} Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>History</h2>
           <div style={{ width: 60 }} />
         </div>
@@ -1183,7 +1183,7 @@ export default function WorkoutApp() {
     {screen === "notes" && !editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>{"<-"} Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Notes</h2>
           <button onClick={() => setEditingNote({ id: null, title: "", content: "" })} style={{ ...s.newWorkoutBtn, fontSize: 22, lineHeight: 1 }}>+</button>
         </div>
@@ -1214,7 +1214,7 @@ export default function WorkoutApp() {
     {screen === "notes" && editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}><- Notes</button>
+          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>{"<-"} Notes</button>
           <div style={{ width: 60 }} />
           <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
         </div>
@@ -1239,7 +1239,7 @@ export default function WorkoutApp() {
     {screen === "settings" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>{"<-"} Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Settings</h2>
           <div style={{ width: 60 }} />
         </div>
