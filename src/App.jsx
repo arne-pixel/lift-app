@@ -310,7 +310,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
 
   const progress = current.duration > 0 ? ((current.duration - remaining) / current.duration) * 100 : 0;
   const isRest = current.type === "rest";
-  const phaseColor = current.phase === "Warm-up" ? "#F7DC6F" : current.phase === "Workout" ? "#FF6B6B" : "#4ECDC4";
+  const phaseColor = current.phase === "Warm-up" ? "#F7DC6F" : current.phase.startsWith("Workout") ? "#FF6B6B" : "#4ECDC4";
   const exercisesInQueue = queue.filter((q) => q.type === "exercise");
   const currentExIdx = queue.slice(0, currentIdx + 1).filter((q) => q.type === "exercise").length;
   const totalExercises = exercisesInQueue.length;
@@ -708,6 +708,9 @@ export default function WorkoutApp() {
                             localStorage.setItem('liftTheme', data.theme || 'dark');
                             localStorage.setItem('beepType', data.beep_type || 'classic');
                             localStorage.setItem('finalBeepType', data.final_beep_type || 'classic');
+                            // Styles are computed once at module load, so a different stored theme needs a reload
+                            const dbTheme = data.theme || 'dark';
+                            if (dbTheme !== _currentTheme && localStorage.getItem('liftTheme') === dbTheme) window.location.reload();
                   }
           } catch (err) {
                   console.log('Settings load failed, using localStorage:', err.message);
@@ -810,6 +813,10 @@ export default function WorkoutApp() {
         user_id: uid,
       });
       if (error) throw error;
+      if (workoutId) {
+        localStorage.setItem('lastCompletedId', String(workoutId));
+        setLastCompletedId(String(workoutId));
+      }
       await loadHistory();
     } catch (err) {
       console.log('History save failed:', err.message);
@@ -946,10 +953,12 @@ export default function WorkoutApp() {
   };
 
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);
+  const confirmTimerRef = useRef(null);
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState([]);
   const [editingNote, setEditingNote] = useState(null);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
   const deleteWorkout = async (idx) => {
+    clearTimeout(confirmTimerRef.current);
     if (confirmDeleteIdx === idx) {
       const w = workouts[idx];
       setConfirmDeleteIdx(null);
@@ -957,7 +966,7 @@ export default function WorkoutApp() {
       if (ok) setWorkouts((wk) => wk.filter((item) => item !== w));
     } else {
       setConfirmDeleteIdx(idx);
-      setTimeout(() => setConfirmDeleteIdx(null), 3000);
+      confirmTimerRef.current = setTimeout(() => setConfirmDeleteIdx(null), 3000);
     }
   };
 
@@ -969,8 +978,7 @@ export default function WorkoutApp() {
   const totalDuration = (w) => {
     const d = (arr) => arr.reduce((a, e) => a + (e.name.trim() ? e.duration : 0), 0);
     const numSets = w.sets || 1; const exCount = w.workout.filter((e) => e.name.trim()).length;
-    const restTotal = exCount > 1 ? (exCount - 1) * w.restTime : 0;
-    const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return d(w.warmup) + workoutTotal + d(w.cooldown);
+    const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return (w.skipWarmup ? 0 : d(w.warmup)) + workoutTotal + (w.skipCooldown ? 0 : d(w.cooldown));
   };
 
   const handleLogout = async () => {
@@ -1319,7 +1327,7 @@ export default function WorkoutApp() {
           <div style={s.phaseBlock}>
             <div style={{ display: "flex", gap: 8 }}>
               {[{id:"dark",label:"Dark"},{id:"light",label:"Light"}].map(opt => (
-                <button key={opt.id} onClick={() => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); saveSettings({ theme: opt.id }); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
+                <button key={opt.id} onClick={async () => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); await saveSettings({ theme: opt.id }); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
                   <span style={{ color: theme === opt.id ? "#4ECDC4" : "#888", fontSize: 14, fontWeight: 700 }}>{opt.label}</span>
                 </button>
               ))}
