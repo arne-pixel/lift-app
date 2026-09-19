@@ -655,7 +655,7 @@ export default function WorkoutApp() {
       setWorkouts(mapped);
     } catch (err) {
       console.log('Supabase not available, using local state:', err.message);
-      setDbError('Kon geen verbinding maken met de database. Workouts worden lokaal bewaard.');
+      setDbError('Kon geen verbinding maken met de database. Workouts konden niet worden geladen.');
     }
     setLoading(false);
   };
@@ -666,7 +666,8 @@ export default function WorkoutApp() {
                   const uid = window.__userId;
       let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
       if (error && error.code === 'PGRST116') {
-        await supabase.from('settings').insert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' });
+        const { error: insertError } = await supabase.from('settings').insert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' });
+        if (insertError) throw insertError;
         const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
         data = result.data;
         error = result.error;
@@ -689,9 +690,11 @@ export default function WorkoutApp() {
           try {
                   const { supabase } = await import('./supabase.js');
                   const uid = window.__userId;
-      await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('auth_user_id', uid);
+      const { error } = await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('auth_user_id', uid);
+      if (error) throw error;
           } catch (err) {
                   console.log('Settings save failed:', err.message);
+                  setDbError('Instellingen opslaan mislukt: ' + err.message);
           }
     };
 
@@ -732,7 +735,7 @@ export default function WorkoutApp() {
     try {
       const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) return;
+      if (!uid) throw new Error('Niet ingelogd');
       if (note.id) {
         const { error } = await supabase.from('notes').update({ title: note.title, content: note.content, updated_at: new Date().toISOString() }).eq('id', note.id).eq('user_id', uid);
         if (error) throw error;
@@ -740,9 +743,13 @@ export default function WorkoutApp() {
         const { error } = await supabase.from('notes').insert({ user_id: uid, title: note.title, content: note.content });
         if (error) throw error;
       }
+      setDbError(null);
       await loadNotes();
+      return true;
     } catch (err) {
       console.log('Note save failed:', err.message);
+      setDbError('Notitie opslaan mislukt: ' + err.message);
+      return false;
     }
   };
 
@@ -756,6 +763,7 @@ export default function WorkoutApp() {
       await loadNotes();
     } catch (err) {
       console.log('Note delete failed:', err.message);
+      setDbError('Notitie verwijderen mislukt: ' + err.message);
     }
   };
 
@@ -763,7 +771,7 @@ export default function WorkoutApp() {
     try {
       const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      await supabase.from('workout_history').insert({
+      const { error } = await supabase.from('workout_history').insert({
         workout_id: workoutId || null,
         workout_name: workoutName || 'Onbekend',
         exercises_completed: exercisesCompleted,
@@ -771,14 +779,17 @@ export default function WorkoutApp() {
         duration_seconds: durationSeconds,
         user_id: uid,
       });
+      if (error) throw error;
       await loadHistory();
     } catch (err) {
       console.log('History save failed:', err.message);
+      setDbError('Workout-geschiedenis opslaan mislukt: ' + err.message);
     }
   };
 
   const saveToSupabase = async (workout, isUpdate = false) => {
     setSaving(true);
+    setDbError(null);
     try {
       const { supabase } = await import('./supabase.js');
       const row = {
@@ -808,7 +819,10 @@ export default function WorkoutApp() {
         workout.id = data.id;
       }
     } catch (err) {
-      console.log('Save failed, keeping local:', err.message);
+      console.log('Save failed:', err.message);
+      setDbError('Opslaan mislukt: ' + err.message);
+      setSaving(false);
+      return null;
     }
     setSaving(false);
     return workout;
@@ -817,9 +831,13 @@ export default function WorkoutApp() {
   const deleteFromSupabase = async (id) => {
     try {
       const { supabase } = await import('./supabase.js');
-      await supabase.from('workouts').delete().eq('id', id);
+      const { error } = await supabase.from('workouts').delete().eq('id', id);
+      if (error) throw error;
+      return true;
     } catch (err) {
       console.log('Delete failed:', err.message);
+      setDbError('Verwijderen mislukt: ' + err.message);
+      return false;
     }
   };
 
@@ -858,7 +876,9 @@ export default function WorkoutApp() {
       name: editingWorkout.name.trim() || `Workout ${workouts.length + 1}`,
       id: editingWorkout.id || undefined,
     };
-    const saved = await saveToSupabase(w, isUpdate); if (saved.id) localStorage.setItem('sets_' + saved.id, String(saved.sets || 1));
+    const saved = await saveToSupabase(w, isUpdate);
+    if (!saved) return null;
+    if (saved.id) localStorage.setItem('sets_' + saved.id, String(saved.sets || 1));
     if (isUpdate) {
       setWorkouts((wk) => wk.map((item, i) => (i === editingIdx ? saved : item)));
     } else {
@@ -868,13 +888,15 @@ export default function WorkoutApp() {
   };
 
   const handleSave = async () => {
-    await saveWorkout();
+    const saved = await saveWorkout();
+    if (!saved) return;
     setScreen("home");
     setEditingWorkout(null);
   };
 
   const handleSaveAndStart = async () => {
     const w = await saveWorkout();
+    if (!w) return;
     setActiveWorkout(w);
     setScreen("active");
     setEditingWorkout(null);
@@ -884,12 +906,12 @@ export default function WorkoutApp() {
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState([]);
   const [editingNote, setEditingNote] = useState(null);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
-  const deleteWorkout = (idx) => {
+  const deleteWorkout = async (idx) => {
     if (confirmDeleteIdx === idx) {
       const w = workouts[idx];
-      deleteFromSupabase(w.id);
-      setWorkouts((wk) => wk.filter((_, i) => i !== idx));
       setConfirmDeleteIdx(null);
+      const ok = await deleteFromSupabase(w.id);
+      if (ok) setWorkouts((wk) => wk.filter((item) => item !== w));
     } else {
       setConfirmDeleteIdx(idx);
       setTimeout(() => setConfirmDeleteIdx(null), 3000);
@@ -936,6 +958,12 @@ export default function WorkoutApp() {
     return <LoginScreen onLogin={(u) => { setUser(u); window.__userId = u.id; }} />;
   }
 
+  const errorBanner = dbError && (
+    <div style={{ margin: "0 20px 16px", padding: "10px 14px", background: "#FF6B6B15", border: "1px solid #FF6B6B30", borderRadius: 10, fontSize: 12, color: "#FF6B6B" }}>
+      {dbError}
+    </div>
+  );
+
   if (screen === "active" && activeWorkout) {
     return (
       <ActiveSession
@@ -963,11 +991,7 @@ export default function WorkoutApp() {
                                     </div>
                     </div>
           
-          {dbError && (
-            <div style={{ margin: "0 20px 16px", padding: "10px 14px", background: "#FF6B6B15", border: "1px solid #FF6B6B30", borderRadius: 10, fontSize: 12, color: "#FF6B6B" }}>
-              {dbError}
-            </div>
-          )}
+          {errorBanner}
 
 
           <div style={{ padding: "0 20px" }}>
@@ -1045,6 +1069,7 @@ export default function WorkoutApp() {
               Save
             </button>
           </div>
+          {errorBanner}
 
           <div style={{ padding: "0 20px" }}>
             <input
@@ -1187,6 +1212,7 @@ export default function WorkoutApp() {
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Notes</h2>
           <button onClick={() => setEditingNote({ id: null, title: "", content: "" })} style={{ ...s.newWorkoutBtn, fontSize: 22, lineHeight: 1 }}>+</button>
         </div>
+        {errorBanner}
         <div style={{ padding: "0 20px" }}>
           {notes.length === 0 ? (
             <div style={s.emptyState}>
@@ -1216,8 +1242,9 @@ export default function WorkoutApp() {
         <div style={s.editTopBar}>
           <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>{"<-"} Notes</button>
           <div style={{ width: 60 }} />
-          <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
+          <button onClick={async () => { const ok = await saveNote(editingNote); if (ok) setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
         </div>
+        {errorBanner}
         <div style={{ padding: "0 20px", flex: 1, display: "flex", flexDirection: "column" }}>
           <input
             value={editingNote.title}
@@ -1243,6 +1270,7 @@ export default function WorkoutApp() {
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Settings</h2>
           <div style={{ width: 60 }} />
         </div>
+        {errorBanner}
         <div style={{ padding: "0 20px" }}>
           <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 8 }}>Appearance</h3>
           <div style={s.phaseBlock}>
