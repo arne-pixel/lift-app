@@ -1,8 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase, OWNER_ID } from "./supabase.js";
+
+// Single-user app: every query is scoped to the owner, matching the RLS policies
+window.__userId = OWNER_ID;
 
 // -- Audio beep using Web Audio API --
 function useBeep(beepType, finalBeepType) {
   const ctxRef = useRef(null);
+  useEffect(() => () => {
+    if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null; }
+  }, []);
   const getCtx = () => {
     if (!ctxRef.current) {
       ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -133,91 +140,108 @@ function PhaseEditor({ title, exercises, setExercises, showRest, restTime, setRe
   );
 }
 
+// -- Build the exercise/rest queue for a session --
+function buildQueue(plan) {
+  const q = [];
+  const isValid = (e) => e.name.trim() && e.duration > 0;
+  const addPhase = (exercises, phase, restTime) => {
+    const valid = exercises.filter(isValid);
+    valid.forEach((ex, i) => {
+      q.push({ type: "exercise", name: ex.name, duration: ex.duration, phase });
+      if (restTime && i < valid.length - 1) {
+        const nextEx = valid[i + 1];
+        q.push({
+          type: "rest",
+          name: "Rest",
+          duration: restTime,
+          phase,
+          nextName: nextEx ? nextEx.name : "",
+        });
+      }
+    });
+  };
+  if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
+  const sets = plan.sets || 1;
+  const validWorkout = plan.workout.filter(isValid);
+  if (validWorkout.length > 0) {
+    for (let si = 0; si < sets; si++) {
+      if (si > 0) {
+        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: validWorkout[0].name });
+      }
+      addPhase(plan.workout, sets > 1 ? "Workout - Set " + (si+1) + "/" + sets : "Workout", plan.restTime);
+    }
+  }
+  if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
+  return q;
+}
+
 // -- Active Timer Screen --
 function ActiveSession({ plan, onFinish, onSaveHistory }) {
   const { beep, finalBeep, getCtx } = useBeep(localStorage.getItem('beepType') || 'classic', localStorage.getItem('finalBeepType') || 'classic');
-  const [queue, setQueue] = useState([]);
+  const [queue, setQueue] = useState(() => buildQueue(plan));
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [remaining, setRemaining] = useState(0);
+  const [remaining, setRemaining] = useState(() => (queue.length > 0 ? queue[0].duration : 0));
   const [isRunning, setIsRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [totalElapsed, setTotalElapsed] = useState(0);
-  const intervalRef = useRef(null);
-  const elapsedRef = useRef(null);
+  const endAtRef = useRef(0); // wall-clock ms at which the current item ends (valid while running)
+  const runStartRef = useRef(0); // wall-clock ms at which the current run (since last play) started
+  const elapsedBaseRef = useRef(0); // ms elapsed in earlier runs, before the last pause
   const lastBeepRef = useRef(null);
 
-  useEffect(() => {
-    const q = [];
-    const addPhase = (exercises, phase, restTime) => {
-      const valid = exercises.filter(e => e.name.trim() && e.duration > 0);
-      valid.forEach((ex, i) => {
-        q.push({ type: "exercise", name: ex.name, duration: ex.duration, phase });
-        if (restTime && i < valid.length - 1) {
-          const nextEx = valid[i + 1];
-          q.push({
-            type: "rest",
-            name: "Rest",
-            duration: restTime,
-            phase,
-            nextName: nextEx ? nextEx.name : "",
-          });
-        }
-      });
-    };
-    if (!plan.skipWarmup) addPhase(plan.warmup, "Warm-up", 0);
-    const sets = plan.sets || 1;    for (let si = 0; si < sets; si++) {      if (si > 0) {        const firstEx = plan.workout.filter(e => e.name.trim())[0];        q.push({ type: "rest", name: "Set rest", duration: plan.restTime || 60, phase: "Workout", nextName: firstEx ? firstEx.name : "" });      }      addPhase(plan.workout, sets > 1 ? "Workout - Set " + (si+1) + "/" + sets : "Workout", plan.restTime);    }
-    if (!plan.skipCooldown) addPhase(plan.cooldown, "Cool Down", 0);
-    setQueue(q);
-    if (q.length > 0) {
-      setRemaining(q[0].duration);
-    }
-  }, [plan]);
-
-  const advanceToNext = useCallback(() => {
-    clearInterval(intervalRef.current);
-    setCurrentIdx(prev => {
-      const nextIdx = prev + 1;
-      if (nextIdx < queue.length) {
-        setRemaining(queue[nextIdx].duration);
-        lastBeepRef.current = null;
-        return nextIdx;
-      } else {
-        setIsRunning(false);
-        setFinished(true);
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-        return prev;
-      }
-    });
+  const goTo = useCallback((idx) => {
+    setCurrentIdx(idx);
+    setRemaining(queue[idx].duration);
+    endAtRef.current = Date.now() + queue[idx].duration * 1000;
+    lastBeepRef.current = null;
   }, [queue]);
 
-  // Main timer
-  useEffect(() => {
-    if (isRunning && remaining > 0) {
-      intervalRef.current = setInterval(() => {
-        setRemaining((r) => {
-          const next = r - 1;
-          if (next > 0 && next <= 3 && lastBeepRef.current !== next) {
-            lastBeepRef.current = next;
-            beep();
-          }
-          if (next === 0) {
-            finalBeep();
-            setTimeout(() => advanceToNext(), 500);
-          }
-          return Math.max(0, next);
-        });
-      }, 1000);
+  const advanceToNext = useCallback(() => {
+    const nextIdx = currentIdx + 1;
+    if (nextIdx < queue.length) {
+      goTo(nextIdx);
+    } else {
+      setIsRunning(false);
+      setFinished(true);
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
     }
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning, remaining, currentIdx, advanceToNext, beep, finalBeep]);
+  }, [queue, currentIdx, goTo]);
 
-  // Total elapsed counter
+  // Main timer + total elapsed: derived from the wall clock, so throttled or
+  // suspended timers (background tab, locked phone) don't stall the countdown
   useEffect(() => {
-    if (isRunning) {
-      elapsedRef.current = setInterval(() => setTotalElapsed((t) => t + 1), 1000);
-    }
-    return () => clearInterval(elapsedRef.current);
+    if (!isRunning) return;
+    runStartRef.current = Date.now();
+    const tick = () => {
+      const now = Date.now();
+      setRemaining(Math.max(0, Math.ceil((endAtRef.current - now) / 1000)));
+      setTotalElapsed(Math.floor((elapsedBaseRef.current + now - runStartRef.current) / 1000));
+    };
+    const id = setInterval(tick, 250);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+      elapsedBaseRef.current += Date.now() - runStartRef.current;
+    };
   }, [isRunning]);
+
+  // Countdown beeps and auto-advance
+  useEffect(() => {
+    if (!isRunning) return;
+    if (remaining > 0 && remaining <= 3 && lastBeepRef.current !== remaining) {
+      lastBeepRef.current = remaining;
+      beep();
+    }
+    if (remaining === 0) {
+      if (lastBeepRef.current !== 0) {
+        lastBeepRef.current = 0;
+        finalBeep();
+      }
+      const t = setTimeout(advanceToNext, 500);
+      return () => clearTimeout(t);
+    }
+  }, [isRunning, remaining, advanceToNext, beep, finalBeep]);
 
   // Save history when workout finishes
   useEffect(() => {
@@ -228,7 +252,13 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   }, [finished]);
 
   const adjustTime = (delta) => {
-    setRemaining((r) => Math.max(1, r + delta));
+    if (isRunning) {
+      endAtRef.current = Math.max(Date.now() + 1000, endAtRef.current + delta * 1000);
+      setRemaining(Math.ceil((endAtRef.current - Date.now()) / 1000));
+    } else {
+      setRemaining((r) => Math.max(1, r + delta));
+    }
+    if (lastBeepRef.current === 0) lastBeepRef.current = null; // time was added after the final beep
     setQueue((q) => {
       const copy = [...q];
       if (copy[currentIdx]) {
@@ -239,29 +269,20 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
   };
 
   const skipCurrent = () => {
-    clearInterval(intervalRef.current);
     advanceToNext();
   };
 
   const goToPrevious = () => {
     if (currentIdx <= 0) return;
-    clearInterval(intervalRef.current);
-    const prevIdx = currentIdx - 1;
-    setCurrentIdx(prevIdx);
-    setRemaining(queue[prevIdx].duration);
-    lastBeepRef.current = null;
+    goTo(currentIdx - 1);
   };
 
   const handleStop = () => {
-    clearInterval(intervalRef.current);
-    clearInterval(elapsedRef.current);
     setIsRunning(false);
     onFinish();
   };
 
   const handleFinish = () => {
-    clearInterval(intervalRef.current);
-    clearInterval(elapsedRef.current);
     setIsRunning(false);
     const exercisesCompleted = queue.slice(0, currentIdx + 1).filter(q => q.type === "exercise").length;
     const exercisesTotal = queue.filter(q => q.type === "exercise").length;
@@ -304,7 +325,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
 
   const progress = current.duration > 0 ? ((current.duration - remaining) / current.duration) * 100 : 0;
   const isRest = current.type === "rest";
-  const phaseColor = current.phase === "Warm-up" ? "#F7DC6F" : current.phase === "Workout" ? "#FF6B6B" : "#4ECDC4";
+  const phaseColor = current.phase === "Warm-up" ? "#F7DC6F" : current.phase.startsWith("Workout") ? "#FF6B6B" : "#4ECDC4";
   const exercisesInQueue = queue.filter((q) => q.type === "exercise");
   const currentExIdx = queue.slice(0, currentIdx + 1).filter((q) => q.type === "exercise").length;
   const totalExercises = exercisesInQueue.length;
@@ -420,9 +441,9 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <button onClick={() => adjustTime(-10)} style={s.adjustBtn}>-10s</button>
           <button onClick={() => adjustTime(-5)} style={s.adjustBtn}>-5s</button>
           {!isRunning ? (
-            <button onClick={() => { getCtx(); setIsRunning(true); }} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
+            <button onClick={() => { getCtx(); endAtRef.current = Date.now() + remaining * 1000; setIsRunning(true); }} style={s.playBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><polygon points="7,4 18,11 7,18"/></svg></button>
           ) : (
-            <button onClick={() => { setIsRunning(false); clearInterval(intervalRef.current); }} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
+            <button onClick={() => setIsRunning(false)} style={s.pauseBtn}><svg width="22" height="22" viewBox="0 0 22 22" fill="white" style={{flexShrink:0, display:"block"}}><rect x="4" y="3" width="5" height="16" rx="1"/><rect x="13" y="3" width="5" height="16" rx="1"/></svg></button>
           )}
           <button onClick={() => adjustTime(5)} style={s.adjustBtn}>+5s</button>
           <button onClick={() => adjustTime(10)} style={s.adjustBtn}>+10s</button>
@@ -441,7 +462,7 @@ function ActiveSession({ plan, onFinish, onSaveHistory }) {
           <span
             onClick={() => {
               const firstNonWarmup = queue.findIndex(item => item.phase !== "Warm-up");
-              if (firstNonWarmup !== -1) { setCurrentIdx(firstNonWarmup); setRemaining(queue[firstNonWarmup].duration); }
+              if (firstNonWarmup !== -1) goTo(firstNonWarmup);
             }}
             style={{ display: "block", textAlign: "center", marginTop: 16, color: "#555", fontSize: 12, cursor: "pointer", letterSpacing: 1 }}
           >
@@ -481,95 +502,8 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 0; }
 `;
 
-// -- Login Screen --
-function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isRegister, setIsRegister] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const { supabase } = await import('./supabase.js');
-      let result;
-      if (isRegister) {
-        result = await supabase.auth.signUp({ email, password });
-      } else {
-        result = await supabase.auth.signInWithPassword({ email, password });
-      }
-      if (result.error) throw result.error;
-      if (result.data?.user) {
-        onLogin(result.data.user);
-      } else if (isRegister) {
-        setError("Account aangemaakt! Probeer nu in te loggen.");
-        setIsRegister(false);
-      }
-    } catch (err) {
-      setError(err.message || "Er is een fout opgetreden");
-    }
-    setLoading(false);
-  };
-
-  const th = localStorage.getItem('liftTheme') || 'dark';
-  const isDark = th !== 'light';
-  return (
-    <div style={{ ..._darkS.container, background: isDark ? "#0d0d1a" : "#f5f5f7" }}>
-      <style>{globalCSS}</style>
-      <div style={_darkS.centerScreen}>
-        <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: isDark ? "#f0f0f0" : "#1a1a2e", letterSpacing: -1, marginBottom: 4 }}>
-          LIFT<span style={{ color: "#FF6B6B" }}>.</span>
-        </h1>
-        <p style={{ color: "#555", fontSize: 12, letterSpacing: 2, textTransform: "uppercase", marginBottom: 48 }}>WORKOUT TRACKER</p>
-        <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 320 }}>
-          <div style={{ marginBottom: 16 }}>
-            <input
-              type="email"
-              placeholder="E-mailadres"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              style={{ width: "100%", padding: "14px 16px", background: isDark ? "#13132a" : "#ffffff", border: isDark ? "1px solid #1a1a35" : "1px solid #d0d0d8", borderRadius: 12, color: isDark ? "#f0f0f0" : "#1a1a2e", fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
-            />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              style={{ width: "100%", padding: "14px 16px", background: isDark ? "#13132a" : "#ffffff", border: isDark ? "1px solid #1a1a35" : "1px solid #d0d0d8", borderRadius: 12, color: isDark ? "#f0f0f0" : "#1a1a2e", fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
-            />
-          </div>
-          {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ width: "100%", padding: "16px", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)", color: "#0d0d1a", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: loading ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}
-          >
-            {loading ? "..." : (isRegister ? "Register" : "Log in")}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsRegister(!isRegister); setError(""); }}
-            style={{ width: "100%", padding: "12px", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
-          >
-            {isRegister ? "Already have an account? Log in" : "Create new account"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // -- Main App --
 export default function WorkoutApp() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [screen, setScreen] = useState("home");
   const [workouts, setWorkouts] = useState([]);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -577,6 +511,7 @@ export default function WorkoutApp() {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [warmupCollapsed, setWarmupCollapsed] = useState(true);
   const [cooldownCollapsed, setCooldownCollapsed] = useState(true);
   const [dbError, setDbError] = useState(null);
@@ -585,58 +520,18 @@ export default function WorkoutApp() {
   const [finalBeepType, setFinalBeepType] = useState(() => localStorage.getItem('finalBeepType') || 'classic');
 
   // -- Supabase helpers --
-  const getSupabase = () => {
-    try {
-      // Dynamic import won't work in artifact preview, so we check if it's available
-      if (window.__supabase) return window.__supabase;
-      return null;
-    } catch { return null; }
-  };
-
-  // Initialize auth and load data
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { supabase } = await import('./supabase.js');
-        window.__supabase = supabase;
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-          window.__userId = session.user.id;
-        }
-        supabase.auth.onAuthStateChange((event, session) => {
-          if (session?.user) {
-            setUser(session.user);
-            window.__userId = session.user.id;
-          } else {
-            setUser(null);
-            window.__userId = null;
-          }
-        });
-      } catch (err) {
-        console.log('Auth init failed:', err.message);
-      }
-      setAuthLoading(false);
-    };
-    initAuth();
+    loadWorkouts();
+    loadSettings();
+    loadHistory();
+    loadNotes();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      loadWorkouts();
-      loadSettings();
-      loadHistory();
-        loadNotes();
-    }
-  }, [user ? user.id : null]);
-
   const loadWorkouts = async () => {
+    const uid = window.__userId;
     setLoading(true);
     setDbError(null);
     try {
-      const { supabase } = await import('./supabase.js');
-      window.__supabase = supabase;
-      const uid = window.__userId;
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
@@ -655,19 +550,20 @@ export default function WorkoutApp() {
       setWorkouts(mapped);
     } catch (err) {
       console.log('Supabase not available, using local state:', err.message);
-      setDbError('Kon geen verbinding maken met de database. Workouts worden lokaal bewaard.');
+      setDbError('Kon geen verbinding maken met de database. Workouts konden niet worden geladen.');
     }
     setLoading(false);
   };
 
     const loadSettings = async () => {
           try {
-                  const { supabase } = await import('./supabase.js');
                   const uid = window.__userId;
-      let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
-      if (error && error.code === 'PGRST116') {
-        await supabase.from('settings').insert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' });
-        const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).single();
+      let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).maybeSingle();
+      if (!error && !data) {
+        // First run: create defaults. ignoreDuplicates keeps a row that a concurrent load already created.
+        const { error: upsertError } = await supabase.from('settings').upsert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' }, { onConflict: 'auth_user_id', ignoreDuplicates: true });
+        if (upsertError) throw upsertError;
+        const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).maybeSingle();
         data = result.data;
         error = result.error;
       }
@@ -679,6 +575,9 @@ export default function WorkoutApp() {
                             localStorage.setItem('liftTheme', data.theme || 'dark');
                             localStorage.setItem('beepType', data.beep_type || 'classic');
                             localStorage.setItem('finalBeepType', data.final_beep_type || 'classic');
+                            // Styles are computed once at module load, so a different stored theme needs a reload
+                            const dbTheme = data.theme || 'dark';
+                            if (dbTheme !== _currentTheme && localStorage.getItem('liftTheme') === dbTheme) window.location.reload();
                   }
           } catch (err) {
                   console.log('Settings load failed, using localStorage:', err.message);
@@ -687,17 +586,17 @@ export default function WorkoutApp() {
 
     const saveSettings = async (updates) => {
           try {
-                  const { supabase } = await import('./supabase.js');
                   const uid = window.__userId;
-      await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('auth_user_id', uid);
+      const { error } = await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('auth_user_id', uid);
+      if (error) throw error;
           } catch (err) {
                   console.log('Settings save failed:', err.message);
+                  setDbError('Instellingen opslaan mislukt: ' + err.message);
           }
     };
 
   const loadHistory = async () => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
       const { data, error } = await supabase
         .from('workout_history')
@@ -713,9 +612,7 @@ export default function WorkoutApp() {
 
   const loadNotes = async () => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) return;
       const { data, error } = await supabase
         .from('notes')
         .select('*')
@@ -730,9 +627,7 @@ export default function WorkoutApp() {
 
   const saveNote = async (note) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) return;
       if (note.id) {
         const { error } = await supabase.from('notes').update({ title: note.title, content: note.content, updated_at: new Date().toISOString() }).eq('id', note.id).eq('user_id', uid);
         if (error) throw error;
@@ -740,30 +635,32 @@ export default function WorkoutApp() {
         const { error } = await supabase.from('notes').insert({ user_id: uid, title: note.title, content: note.content });
         if (error) throw error;
       }
+      setDbError(null);
       await loadNotes();
+      return true;
     } catch (err) {
       console.log('Note save failed:', err.message);
+      setDbError('Notitie opslaan mislukt: ' + err.message);
+      return false;
     }
   };
 
   const deleteNote = async (id) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) return;
       const { error } = await supabase.from('notes').delete().eq('id', id).eq('user_id', uid);
       if (error) throw error;
       await loadNotes();
     } catch (err) {
       console.log('Note delete failed:', err.message);
+      setDbError('Notitie verwijderen mislukt: ' + err.message);
     }
   };
 
   const saveHistory = async (exercisesCompleted, exercisesTotal, durationSeconds, workoutId, workoutName) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      await supabase.from('workout_history').insert({
+      const { error } = await supabase.from('workout_history').insert({
         workout_id: workoutId || null,
         workout_name: workoutName || 'Onbekend',
         exercises_completed: exercisesCompleted,
@@ -771,16 +668,22 @@ export default function WorkoutApp() {
         duration_seconds: durationSeconds,
         user_id: uid,
       });
+      if (error) throw error;
+      if (workoutId) {
+        localStorage.setItem('lastCompletedId', String(workoutId));
+        setLastCompletedId(String(workoutId));
+      }
       await loadHistory();
     } catch (err) {
       console.log('History save failed:', err.message);
+      setDbError('Workout-geschiedenis opslaan mislukt: ' + err.message);
     }
   };
 
   const saveToSupabase = async (workout, isUpdate = false) => {
     setSaving(true);
+    setDbError(null);
     try {
-      const { supabase } = await import('./supabase.js');
       const row = {
         user_id: window.__userId,
       name: workout.name,
@@ -793,11 +696,14 @@ export default function WorkoutApp() {
         updated_at: new Date().toISOString(),
       };
       if (isUpdate && workout.id) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('workouts')
           .update(row)
-          .eq('id', workout.id);
+          .eq('id', workout.id)
+          .eq('user_id', String(window.__userId))
+          .select();
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Workout niet gevonden');
       } else {
         const { data, error } = await supabase
           .from('workouts')
@@ -808,7 +714,10 @@ export default function WorkoutApp() {
         workout.id = data.id;
       }
     } catch (err) {
-      console.log('Save failed, keeping local:', err.message);
+      console.log('Save failed:', err.message);
+      setDbError('Opslaan mislukt: ' + err.message);
+      setSaving(false);
+      return null;
     }
     setSaving(false);
     return workout;
@@ -816,10 +725,14 @@ export default function WorkoutApp() {
 
   const deleteFromSupabase = async (id) => {
     try {
-      const { supabase } = await import('./supabase.js');
-      await supabase.from('workouts').delete().eq('id', id);
+      const { data, error } = await supabase.from('workouts').delete().eq('id', id).eq('user_id', String(window.__userId)).select();
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Workout niet gevonden');
+      return true;
     } catch (err) {
       console.log('Delete failed:', err.message);
+      setDbError('Verwijderen mislukt: ' + err.message);
+      return false;
     }
   };
 
@@ -852,13 +765,18 @@ export default function WorkoutApp() {
   };
 
   const saveWorkout = async () => {
+    if (savingRef.current) return null;
+    savingRef.current = true;
     const isUpdate = editingIdx !== null;
     const w = {
       ...editingWorkout,
       name: editingWorkout.name.trim() || `Workout ${workouts.length + 1}`,
       id: editingWorkout.id || undefined,
     };
-    const saved = await saveToSupabase(w, isUpdate); if (saved.id) localStorage.setItem('sets_' + saved.id, String(saved.sets || 1));
+    const saved = await saveToSupabase(w, isUpdate);
+    savingRef.current = false;
+    if (!saved) return null;
+    if (saved.id) localStorage.setItem('sets_' + saved.id, String(saved.sets || 1));
     if (isUpdate) {
       setWorkouts((wk) => wk.map((item, i) => (i === editingIdx ? saved : item)));
     } else {
@@ -868,31 +786,45 @@ export default function WorkoutApp() {
   };
 
   const handleSave = async () => {
-    await saveWorkout();
+    const saved = await saveWorkout();
+    if (!saved) return;
     setScreen("home");
     setEditingWorkout(null);
   };
 
+  const handleSaveNote = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    const ok = await saveNote(editingNote);
+    savingRef.current = false;
+    setSaving(false);
+    if (ok) setEditingNote(null);
+  };
+
   const handleSaveAndStart = async () => {
     const w = await saveWorkout();
+    if (!w) return;
     setActiveWorkout(w);
     setScreen("active");
     setEditingWorkout(null);
   };
 
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState(null);
+  const confirmTimerRef = useRef(null);
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState([]);
   const [editingNote, setEditingNote] = useState(null);  const [lastCompletedId, setLastCompletedId] = useState(() => localStorage.getItem('lastCompletedId'));
-  const deleteWorkout = (idx) => {
+  const deleteWorkout = async (idx) => {
+    clearTimeout(confirmTimerRef.current);
     if (confirmDeleteIdx === idx) {
       const w = workouts[idx];
-      deleteFromSupabase(w.id);
-      setWorkouts((wk) => wk.filter((_, i) => i !== idx));
       setConfirmDeleteIdx(null);
+      const ok = await deleteFromSupabase(w.id);
+      if (ok) setWorkouts((wk) => wk.filter((item) => item !== w));
     } else {
       setConfirmDeleteIdx(idx);
-      setTimeout(() => setConfirmDeleteIdx(null), 3000);
+      confirmTimerRef.current = setTimeout(() => setConfirmDeleteIdx(null), 3000);
     }
   };
 
@@ -904,37 +836,14 @@ export default function WorkoutApp() {
   const totalDuration = (w) => {
     const d = (arr) => arr.reduce((a, e) => a + (e.name.trim() ? e.duration : 0), 0);
     const numSets = w.sets || 1; const exCount = w.workout.filter((e) => e.name.trim()).length;
-    const restTotal = exCount > 1 ? (exCount - 1) * w.restTime : 0;
-    const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return d(w.warmup) + workoutTotal + d(w.cooldown);
+    const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return (w.skipWarmup ? 0 : d(w.warmup)) + workoutTotal + (w.skipCooldown ? 0 : d(w.cooldown));
   };
 
-  const handleLogout = async () => {
-    try {
-      const { supabase } = await import('./supabase.js');
-      await supabase.auth.signOut();
-      setUser(null);
-      setWorkouts([]);
-      setHistory([]);
-      setScreen("home");
-    } catch (err) {
-      console.log('Logout failed:', err.message);
-    }
-  };
-
-  if (authLoading) {
-    return (
-      <div style={_darkS.container}>
-        <style>{globalCSS}</style>
-        <div style={_darkS.centerScreen}>
-          <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: "#f0f0f0", letterSpacing: -1 }}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginScreen onLogin={(u) => { setUser(u); window.__userId = u.id; }} />;
-  }
+  const errorBanner = dbError && (
+    <div style={{ margin: "0 20px 16px", padding: "10px 14px", background: "#FF6B6B15", border: "1px solid #FF6B6B30", borderRadius: 10, fontSize: 12, color: "#FF6B6B" }}>
+      {dbError}
+    </div>
+  );
 
   if (screen === "active" && activeWorkout) {
     return (
@@ -963,11 +872,7 @@ export default function WorkoutApp() {
                                     </div>
                     </div>
           
-          {dbError && (
-            <div style={{ margin: "0 20px 16px", padding: "10px 14px", background: "#FF6B6B15", border: "1px solid #FF6B6B30", borderRadius: 10, fontSize: 12, color: "#FF6B6B" }}>
-              {dbError}
-            </div>
-          )}
+          {errorBanner}
 
 
           <div style={{ padding: "0 20px" }}>
@@ -1039,12 +944,13 @@ export default function WorkoutApp() {
         <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
           <div style={s.editTopBar}>
             <button onClick={() => { setScreen("home"); setEditingWorkout(null); }} style={s.cancelBtn}>
-              <- Back
+              {"<-"} Back
             </button>
-            <button onClick={handleSave} style={s.saveBtn}>
+            <button onClick={handleSave} disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>
               Save
             </button>
           </div>
+          {errorBanner}
 
           <div style={{ padding: "0 20px" }}>
             <input
@@ -1118,7 +1024,8 @@ export default function WorkoutApp() {
               editingWorkout.cooldown.some((e) => e.name.trim())) && (
               <button
                 onClick={handleSaveAndStart}
-                style={{ ...s.startBtn, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
+                disabled={saving}
+                style={{ ...s.startBtn, opacity: saving ? 0.5 : 1, marginLeft: 0, marginBottom: 32, width: "100%", boxShadow: "0 8px 32px #4ECDC430", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)" }}
               >
                 <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor" style={{display:"inline-block",verticalAlign:"middle",marginRight:6}}><polygon points="0,0 12,7 0,14"/></svg>Save & Start
               </button>
@@ -1133,7 +1040,7 @@ export default function WorkoutApp() {
     {screen === "history" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>{"<-"} Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>History</h2>
           <div style={{ width: 60 }} />
         </div>
@@ -1183,10 +1090,11 @@ export default function WorkoutApp() {
     {screen === "notes" && !editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>{"<-"} Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Notes</h2>
           <button onClick={() => setEditingNote({ id: null, title: "", content: "" })} style={{ ...s.newWorkoutBtn, fontSize: 22, lineHeight: 1 }}>+</button>
         </div>
+        {errorBanner}
         <div style={{ padding: "0 20px" }}>
           {notes.length === 0 ? (
             <div style={s.emptyState}>
@@ -1214,10 +1122,11 @@ export default function WorkoutApp() {
     {screen === "notes" && editingNote && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}><- Notes</button>
+          <button onClick={() => setEditingNote(null)} style={s.cancelBtn}>{"<-"} Notes</button>
           <div style={{ width: 60 }} />
-          <button onClick={async () => { await saveNote(editingNote); setEditingNote(null); }} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10 }}>Save</button>
+          <button onClick={handleSaveNote} disabled={saving} style={{ ...s.newWorkoutBtn, fontSize: 13, padding: "6px 14px", borderRadius: 10, opacity: saving ? 0.5 : 1 }}>Save</button>
         </div>
+        {errorBanner}
         <div style={{ padding: "0 20px", flex: 1, display: "flex", flexDirection: "column" }}>
           <input
             value={editingNote.title}
@@ -1239,16 +1148,17 @@ export default function WorkoutApp() {
     {screen === "settings" && (
       <div style={{ animation: "fadeIn 0.3s ease", minHeight: "100vh" }}>
         <div style={s.editTopBar}>
-          <button onClick={() => setScreen("home")} style={s.cancelBtn}><- Back</button>
+          <button onClick={() => setScreen("home")} style={s.cancelBtn}>{"<-"} Back</button>
           <h2 style={{ color: _currentTheme === 'light' ? "#1a1a2e" : "#f0f0f0", fontSize: 16, fontWeight: 700 }}>Settings</h2>
           <div style={{ width: 60 }} />
         </div>
+        {errorBanner}
         <div style={{ padding: "0 20px" }}>
           <h3 style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600, marginBottom: 12, marginTop: 8 }}>Appearance</h3>
           <div style={s.phaseBlock}>
             <div style={{ display: "flex", gap: 8 }}>
               {[{id:"dark",label:"Dark"},{id:"light",label:"Light"}].map(opt => (
-                <button key={opt.id} onClick={() => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); saveSettings({ theme: opt.id }); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
+                <button key={opt.id} onClick={async () => { setTheme(opt.id); localStorage.setItem('liftTheme', opt.id); await saveSettings({ theme: opt.id }); window.location.reload(); }} style={{ flex: 1, padding: "14px", background: theme === opt.id ? (opt.id==='dark'?"#1a1a2e":"#ffffff") : (theme==='light'?"#f5f5f7":"#0d0d1a"), border: theme === opt.id ? "2px solid #4ECDC4" : (theme==='light'?"1px solid #d0d0d8":"1px solid #1a1a30"), borderRadius: 12, cursor: "pointer", textAlign: "center" }}>
                   <span style={{ color: theme === opt.id ? "#4ECDC4" : "#888", fontSize: 14, fontWeight: 700 }}>{opt.label}</span>
                 </button>
               ))}
@@ -1259,7 +1169,7 @@ export default function WorkoutApp() {
             <p style={{ fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 12 }}>Countdown (last 3s)</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[{id:"classic",label:"Classic",desc:"Short square beep"},{id:"soft",label:"Soft",desc:"Soft sine tone"},{id:"sharp",label:"Sharp",desc:"Sharp sawtooth"},{id:"low",label:"Low",desc:"Low triangle tone"},{id:"double",label:"Double",desc:"Double quick beep"}].map(opt => (
-                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); saveSettings({ beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                <button key={opt.id} onClick={() => { setBeepType(opt.id); localStorage.setItem('beepType',opt.id); saveSettings({ beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const bp={classic:[880,"square",0.3,0.15],soft:[660,"sine",0.2,0.2],sharp:[1200,"sawtooth",0.25,0.1],low:[440,"triangle",0.35,0.2],double:[988,"square",0.25,0.08]};const p=bp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='double'){t(p[0],p[1],p[2],p[3],0);t(p[0],p[1],p[2],p[3],0.12);}else{t(p[0],p[1],p[2],p[3]);}setTimeout(()=>ctx.close().catch(()=>{}),1000);}catch(e){console.warn("beep preview error:",e);} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:beepType===opt.id?(_currentTheme==='light'?"#e8f8f7":"#1a1a3a"):"transparent",border:beepType===opt.id?"1px solid #4ECDC4":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                   <span style={{ width:18,height:18,borderRadius:"50%",border:beepType===opt.id?"2px solid #4ECDC4":"2px solid #444",background:beepType===opt.id?"#4ECDC4":"none",flexShrink:0 }} />
                   <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                 </button>
@@ -1269,7 +1179,7 @@ export default function WorkoutApp() {
               <p style={{ fontSize:13,color:"#888",fontWeight:600,marginBottom:12 }}>Final</p>
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
                 {[{id:"classic",label:"Classic",desc:"Loud square tone"},{id:"gentle",label:"Gentle",desc:"Soft longer tone"},{id:"alarm",label:"Alarm",desc:"High sawtooth alert"},{id:"deep",label:"Deep",desc:"Deep bass tone"},{id:"triple",label:"Triple",desc:"Three quick beeps"}].map(opt => (
-                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); saveSettings({ final_beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}}catch(e){} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
+                  <button key={opt.id} onClick={() => { setFinalBeepType(opt.id); localStorage.setItem('finalBeepType',opt.id); saveSettings({ final_beep_type: opt.id }); try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const fp={classic:[1200,"square",0.4,0.4],gentle:[880,"sine",0.3,0.5],alarm:[1500,"sawtooth",0.35,0.3],deep:[330,"triangle",0.45,0.5],triple:[1100,"square",0.3,0.12]};const p=fp[opt.id];const t=(f,tp,g,d,dl)=>{const o=ctx.createOscillator(),gn=ctx.createGain();o.connect(gn);gn.connect(ctx.destination);o.frequency.value=f;o.type=tp;gn.gain.setValueAtTime(g,ctx.currentTime+(dl||0));gn.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dl||0)+d);o.start(ctx.currentTime+(dl||0));o.stop(ctx.currentTime+(dl||0)+d);};if(opt.id==='triple'){[0,0.15,0.3].forEach(d=>t(p[0],p[1],p[2],p[3],d));}else{t(p[0],p[1],p[2],p[3]);}setTimeout(()=>ctx.close().catch(()=>{}),1000);}catch(e){console.warn("final beep preview error:",e);} }} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:finalBeepType===opt.id?(_currentTheme==='light'?"#fff0f0":"#1a1a3a"):"transparent",border:finalBeepType===opt.id?"1px solid #FF6B6B":"1px solid transparent",borderRadius:10,cursor:"pointer",textAlign:"left" }}>
                     <span style={{ width:18,height:18,borderRadius:"50%",border:finalBeepType===opt.id?"2px solid #FF6B6B":"2px solid #444",background:finalBeepType===opt.id?"#FF6B6B":"none",flexShrink:0 }} />
                     <div><span style={{ color:_currentTheme==='light'?"#1a1a2e":"#f0f0f0",fontSize:13,fontWeight:600 }}>{opt.label}</span><span style={{ color:"#888",fontSize:11,marginLeft:8 }}>{opt.desc}</span></div>
                   </button>
@@ -1278,14 +1188,6 @@ export default function WorkoutApp() {
             </div>
           </div>
 
-          <div style={{ paddingBottom: 8 }}>
-            <button
-              onClick={handleLogout}
-              style={{ width: "100%", padding: "14px", background: "none", border: "1px solid #FF6B6B40", borderRadius: 12, color: "#FF6B6B", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
-            >
-              Log out
-            </button>
-          </div>
           <div style={{ height: 40 }} />
         </div>
       </div>
