@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase, OWNER_ID } from "./supabase.js";
+
+// Single-user app: every query is scoped to the owner, matching the RLS policies
+window.__userId = OWNER_ID;
 
 // -- Audio beep using Web Audio API --
 function useBeep(beepType, finalBeepType) {
@@ -498,95 +502,8 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 0; }
 `;
 
-// -- Login Screen --
-function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isRegister, setIsRegister] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const { supabase } = await import('./supabase.js');
-      let result;
-      if (isRegister) {
-        result = await supabase.auth.signUp({ email, password });
-      } else {
-        result = await supabase.auth.signInWithPassword({ email, password });
-      }
-      if (result.error) throw result.error;
-      if (result.data?.session?.user) {
-        onLogin(result.data.session.user);
-      } else if (isRegister) {
-        setError("Account aangemaakt! Probeer nu in te loggen.");
-        setIsRegister(false);
-      }
-    } catch (err) {
-      setError(err.message || "Er is een fout opgetreden");
-    }
-    setLoading(false);
-  };
-
-  const th = localStorage.getItem('liftTheme') || 'dark';
-  const isDark = th !== 'light';
-  return (
-    <div style={{ ..._darkS.container, background: isDark ? "#0d0d1a" : "#f5f5f7" }}>
-      <style>{globalCSS}</style>
-      <div style={_darkS.centerScreen}>
-        <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: isDark ? "#f0f0f0" : "#1a1a2e", letterSpacing: -1, marginBottom: 4 }}>
-          LIFT<span style={{ color: "#FF6B6B" }}>.</span>
-        </h1>
-        <p style={{ color: "#555", fontSize: 12, letterSpacing: 2, textTransform: "uppercase", marginBottom: 48 }}>WORKOUT TRACKER</p>
-        <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 320 }}>
-          <div style={{ marginBottom: 16 }}>
-            <input
-              type="email"
-              placeholder="E-mailadres"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              style={{ width: "100%", padding: "14px 16px", background: isDark ? "#13132a" : "#ffffff", border: isDark ? "1px solid #1a1a35" : "1px solid #d0d0d8", borderRadius: 12, color: isDark ? "#f0f0f0" : "#1a1a2e", fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
-            />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              style={{ width: "100%", padding: "14px 16px", background: isDark ? "#13132a" : "#ffffff", border: isDark ? "1px solid #1a1a35" : "1px solid #d0d0d8", borderRadius: 12, color: isDark ? "#f0f0f0" : "#1a1a2e", fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
-            />
-          </div>
-          {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ width: "100%", padding: "16px", background: "linear-gradient(135deg, #4ECDC4, #3ab8b0)", color: "#0d0d1a", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: loading ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}
-          >
-            {loading ? "..." : (isRegister ? "Register" : "Log in")}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsRegister(!isRegister); setError(""); }}
-            style={{ width: "100%", padding: "12px", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
-          >
-            {isRegister ? "Already have an account? Log in" : "Create new account"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // -- Main App --
 export default function WorkoutApp() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [screen, setScreen] = useState("home");
   const [workouts, setWorkouts] = useState([]);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -603,91 +520,24 @@ export default function WorkoutApp() {
   const [finalBeepType, setFinalBeepType] = useState(() => localStorage.getItem('finalBeepType') || 'classic');
 
   // -- Supabase helpers --
-  const getSupabase = () => {
-    try {
-      // Dynamic import won't work in artifact preview, so we check if it's available
-      if (window.__supabase) return window.__supabase;
-      return null;
-    } catch { return null; }
-  };
-
-  // Drop everything that belongs to the previous user
-  const resetUserState = () => {
-    setWorkouts([]);
-    setHistory([]);
-    setNotes([]);
-    setEditingNote(null);
-    setEditingWorkout(null);
-    setEditingIdx(null);
-    setActiveWorkout(null);
-    setConfirmDeleteIdx(null);
-    setDbError(null);
-    setScreen("home");
-    localStorage.removeItem('lastCompletedId');
-    setLastCompletedId(null);
-  };
-
-  // Initialize auth and load data
   useEffect(() => {
-    let cancelled = false;
-    let subscription = null;
-    const initAuth = async () => {
-      try {
-        const { supabase } = await import('./supabase.js');
-        window.__supabase = supabase;
-        const { data: { session } } = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (session?.user) {
-          setUser(session.user);
-          window.__userId = session.user.id;
-        }
-        const { data } = supabase.auth.onAuthStateChange((event, session) => {
-          const nextId = session?.user?.id ?? null;
-          if ((window.__userId ?? null) !== nextId) resetUserState();
-          if (session?.user) {
-            setUser(session.user);
-            window.__userId = session.user.id;
-          } else {
-            setUser(null);
-            window.__userId = null;
-          }
-        });
-        subscription = data.subscription;
-      } catch (err) {
-        console.log('Auth init failed:', err.message);
-      }
-      if (!cancelled) setAuthLoading(false);
-    };
-    initAuth();
-    return () => {
-      cancelled = true;
-      if (subscription) subscription.unsubscribe();
-    };
+    loadWorkouts();
+    loadSettings();
+    loadHistory();
+    loadNotes();
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      loadWorkouts();
-      loadSettings();
-      loadHistory();
-        loadNotes();
-    }
-  }, [user ? user.id : null]);
 
   const loadWorkouts = async () => {
     const uid = window.__userId;
     setLoading(true);
     setDbError(null);
     try {
-      const { supabase } = await import('./supabase.js');
-      window.__supabase = supabase;
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      if (window.__userId !== uid) return;
       const mapped = data.map(row => ({
         id: row.id,
         name: row.name,
@@ -699,7 +549,6 @@ export default function WorkoutApp() {
       }));
       setWorkouts(mapped);
     } catch (err) {
-      if (window.__userId !== uid) return;
       console.log('Supabase not available, using local state:', err.message);
       setDbError('Kon geen verbinding maken met de database. Workouts konden niet worden geladen.');
     }
@@ -708,11 +557,10 @@ export default function WorkoutApp() {
 
     const loadSettings = async () => {
           try {
-                  const { supabase } = await import('./supabase.js');
                   const uid = window.__userId;
       let { data, error } = await supabase.from('settings').select('*').eq('auth_user_id', uid).maybeSingle();
       if (!error && !data) {
-        // First login: create defaults. ignoreDuplicates keeps a row that a concurrent load already created.
+        // First run: create defaults. ignoreDuplicates keeps a row that a concurrent load already created.
         const { error: upsertError } = await supabase.from('settings').upsert({ auth_user_id: uid, theme: 'dark', beep_type: 'classic', final_beep_type: 'classic' }, { onConflict: 'auth_user_id', ignoreDuplicates: true });
         if (upsertError) throw upsertError;
         const result = await supabase.from('settings').select('*').eq('auth_user_id', uid).maybeSingle();
@@ -720,7 +568,6 @@ export default function WorkoutApp() {
         error = result.error;
       }
                   if (error) throw error;
-                  if (window.__userId !== uid) return;
                   if (data) {
                             setTheme(data.theme || 'dark');
                             setBeepType(data.beep_type || 'classic');
@@ -739,7 +586,6 @@ export default function WorkoutApp() {
 
     const saveSettings = async (updates) => {
           try {
-                  const { supabase } = await import('./supabase.js');
                   const uid = window.__userId;
       const { error } = await supabase.from('settings').update({ ...updates, updated_at: new Date().toISOString() }).eq('auth_user_id', uid);
       if (error) throw error;
@@ -751,7 +597,6 @@ export default function WorkoutApp() {
 
   const loadHistory = async () => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
       const { data, error } = await supabase
         .from('workout_history')
@@ -759,7 +604,6 @@ export default function WorkoutApp() {
         .eq('user_id', uid)
         .order('completed_at', { ascending: false });
       if (error) throw error;
-      if (window.__userId !== uid) return;
       setHistory(data || []);
     } catch (err) {
       console.log('History load failed:', err.message);
@@ -768,16 +612,13 @@ export default function WorkoutApp() {
 
   const loadNotes = async () => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) return;
       const { data, error } = await supabase
         .from('notes')
         .select('*')
         .eq('user_id', uid)
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      if (window.__userId !== uid) return;
       setNotes(data || []);
     } catch (err) {
       console.log('Notes load failed:', err.message);
@@ -786,9 +627,7 @@ export default function WorkoutApp() {
 
   const saveNote = async (note) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) throw new Error('Niet ingelogd');
       if (note.id) {
         const { error } = await supabase.from('notes').update({ title: note.title, content: note.content, updated_at: new Date().toISOString() }).eq('id', note.id).eq('user_id', uid);
         if (error) throw error;
@@ -808,9 +647,7 @@ export default function WorkoutApp() {
 
   const deleteNote = async (id) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
-      if (!uid) return;
       const { error } = await supabase.from('notes').delete().eq('id', id).eq('user_id', uid);
       if (error) throw error;
       await loadNotes();
@@ -822,7 +659,6 @@ export default function WorkoutApp() {
 
   const saveHistory = async (exercisesCompleted, exercisesTotal, durationSeconds, workoutId, workoutName) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const uid = window.__userId;
       const { error } = await supabase.from('workout_history').insert({
         workout_id: workoutId || null,
@@ -848,7 +684,6 @@ export default function WorkoutApp() {
     setSaving(true);
     setDbError(null);
     try {
-      const { supabase } = await import('./supabase.js');
       const row = {
         user_id: window.__userId,
       name: workout.name,
@@ -890,7 +725,6 @@ export default function WorkoutApp() {
 
   const deleteFromSupabase = async (id) => {
     try {
-      const { supabase } = await import('./supabase.js');
       const { data, error } = await supabase.from('workouts').delete().eq('id', id).eq('user_id', String(window.__userId)).select();
       if (error) throw error;
       if (!data || data.length === 0) throw new Error('Workout niet gevonden');
@@ -1004,33 +838,6 @@ export default function WorkoutApp() {
     const numSets = w.sets || 1; const exCount = w.workout.filter((e) => e.name.trim()).length;
     const restWithinSet = exCount > 1 ? (exCount - 1) * w.restTime : 0; const workoutTotal = (d(w.workout) + restWithinSet) * numSets + (numSets > 1 ? (numSets - 1) * w.restTime : 0); return (w.skipWarmup ? 0 : d(w.warmup)) + workoutTotal + (w.skipCooldown ? 0 : d(w.cooldown));
   };
-
-  const handleLogout = async () => {
-    try {
-      const { supabase } = await import('./supabase.js');
-      await supabase.auth.signOut();
-      setUser(null);
-      window.__userId = null;
-      resetUserState();
-    } catch (err) {
-      console.log('Logout failed:', err.message);
-    }
-  };
-
-  if (authLoading) {
-    return (
-      <div style={_darkS.container}>
-        <style>{globalCSS}</style>
-        <div style={_darkS.centerScreen}>
-          <h1 style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: "#f0f0f0", letterSpacing: -1 }}>LIFT<span style={{ color: "#FF6B6B" }}>.</span></h1>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginScreen onLogin={(u) => { if ((window.__userId ?? null) !== u.id) resetUserState(); setUser(u); window.__userId = u.id; }} />;
-  }
 
   const errorBanner = dbError && (
     <div style={{ margin: "0 20px 16px", padding: "10px 14px", background: "#FF6B6B15", border: "1px solid #FF6B6B30", borderRadius: 10, fontSize: 12, color: "#FF6B6B" }}>
@@ -1381,14 +1188,6 @@ export default function WorkoutApp() {
             </div>
           </div>
 
-          <div style={{ paddingBottom: 8 }}>
-            <button
-              onClick={handleLogout}
-              style={{ width: "100%", padding: "14px", background: "none", border: "1px solid #FF6B6B40", borderRadius: 12, color: "#FF6B6B", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
-            >
-              Log out
-            </button>
-          </div>
           <div style={{ height: 40 }} />
         </div>
       </div>
